@@ -38,9 +38,6 @@ stonecutter {
 	}
 }
 
-sourceSets["main"].java.setSrcDirs(
-	listOf(layout.buildDirectory.dir("generated/stonecutter/main/java").get().asFile)
-)
 tasks.matching { it.name in listOf("compileJava", "compileKotlin", "kspKotlin", "javadoc", "sourcesJar") }
 	.configureEach { dependsOn(tasks.named("stonecutterGenerate")) }
 
