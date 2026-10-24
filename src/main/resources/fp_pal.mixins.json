@@ -1,0 +1,19 @@
+{
+  "package": "com.github.razorplay01.fp_pal.mixin",
+  "required": true,
+  "minVersion": "0.8",
+  "compatibilityLevel": "${java}",
+  "injectors": {
+    "defaultRequire": 1
+  },
+  "mixins": [],
+  "client": [
+    "AbstractClientPlayerFpMixin",
+    "AutoPlayingSoundKeyframeHandlerMixin",
+    "CameraAccessor",
+    "CameraMixin",
+    "ItemTransformMixin",
+    "firstPerson.FpArmRendererMixin",
+    "firstPerson.ItemInHandRendererMixin"
+  ]
+}
