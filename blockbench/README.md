@@ -34,18 +34,21 @@ bones afterwards (so a paused timeline is not corrupted):
 
 * the animated `fp_camera` **roll** and **position** (the camera and the rig move together, which is
   what `FpCameraUtil` does to the real camera while the arms stay in view space);
-* the **item chain** of `fp_r_item` / `fp_l_item`, split exactly like the game splits it: vanilla's
-  hand anchor (`applyItemArmTransform`) goes *outside* the item bone and the
-  `firstperson_righthand` / `firstperson_lefthand` display transform goes *inside* it, as
-  `ItemInHandRenderer#renderArmWithItem` and `ItemTransform#apply` apply them.
+* the **rotation order** the renderer composes bones with (Z, Y, X) instead of Blockbench's (X, Y, Z).
 
 ## What the plugin does *not* do
 
 The held items are deliberately left alone. The plugin does not apply vanilla's hand anchor or the
 `firstperson_righthand` display transform to `fp_r_item` / `fp_l_item`: the rig previews exactly the
 pose the animation gives those bones, which is what the mod draws once the extra vanilla transforms
-are taken out of the way (see `MIGRATION.md`, *The held item and vanilla's display transform*). If the
-item looks different in game than in Blockbench, that is a renderer issue, not a preview one.
+are taken out of the way (see `MIGRATION.md`, *The held item and vanilla's display transform*). The
+mod rewinds the pose to the frame the vanilla hand pass started from, so none of vanilla's
+first-person item transforms (hand sway, equip progress, swing, hand anchor, use-item poses) reach
+the animated pose. If the item still looks different in game than in Blockbench, check the *item
+model* and where its box sits relative to the bone: in game the item's 1×1×1 model box is centred on
+the `fp_*_item` bone origin, so a placeholder that is not centred there will be off by the
+difference. In this rig the item bone is also a child of the arm bone (`fp_player_arms > rightArm >
+fp_r_item`), so the preview drags the item with the hand, exactly like the game does.
 
 ## Defaults
 
@@ -55,18 +58,13 @@ The defaults are the values the mod and vanilla Minecraft use, so a rig authored
 | Option | Default | Where it comes from |
 | --- | --- | --- |
 | Field of view | `70` | Minecraft's *FOV* option (vertical FOV, the same convention Blockbench uses) |
-| Eye height | `0.52` blocks | `FpArmRenderUtil.applyCameraAnchor` → `translate(0, -0.52, -0.72)` |
-| Distance | `0.72` blocks | same anchor, the `-0.72` on Z |
 | `fpDisplayTranslation` X/Y/Z | `0` | per-animation extra data, in model pixels |
 | `fpDisplayScale` | `1` | per-animation extra data |
-| Roll preview | on | the animated `fp_camera` rotation Z (`FpCameraUtil` rolls the real camera) |
-| Position preview | on | the animated `fp_camera` position (`FpCameraUtil` moves the real camera) |
 | `fpDisplayAnchor: "hand"` | off | on when the clip anchors the rig on the hand instead of the view axis |
-| PAL first-person axes | on | see [Accuracy](#accuracy); the renderer always converts, so the preview does too |
-| Item chain | on | `FpArmRendererMixin` (hand anchor + item display transform) |
-| Item display rotation | `0, -90, 25` | `ItemDisplayContext.FIRST_PERSON_RIGHT_HAND` |
-| Item display translation | `1.13, 3.2, 1.13` px | same entry (`ItemTransform#apply` mirrors X for the left hand) |
-| Item display scale | `0.68` | same entry |
+
+Everything else the plugin does is not a setting: the anchor (`0.52` blocks above the rig origin and
+`0.72` behind it), the `fp_camera` roll and position preview and the game's rotation order are applied
+on every frame, because they are what the mod does and there is nothing to tune.
 
 That puts the Blockbench camera at `(0, 8.32, 11.52)` model units, looking along `-Z`, which is the
 frame `player_arms_import.bbmodel` is authored in: arms at `x = ±6`, rig origin between the hands.
@@ -103,19 +101,19 @@ What is reproduced exactly:
 
 Things that legitimately differ:
 
-* **Item model.** The item *display transform* matches, but the preview shows whatever geometry the
-  item bone contains. Vanilla also adds the swing/equip transforms (`applyItemArmAttackTransform`),
-  which are driven by the player's swing progress and are not part of an animation clip.
+* **Item model.** The preview shows whatever geometry the item bone contains, while the game draws the
+  real item model, whose 1×1×1 box is centred on the `fp_*_item` bone origin. Vanilla's display
+  transform for the item and the rest of its first-person item transforms (hand sway, equip progress,
+  swing, hand anchor, use-item poses) are skipped by the mod, so only the animation poses the item.
 * **Aspect ratio.** The FOV is vertical in both, so the vertical framing always matches; the
   horizontal one matches when the viewport has the same aspect ratio as the game window.
-* **Animation values vs. the renderer's axes.** Blockbench stores the authored values and composes
-  them on top of the rest pose, while `FpArmRenderUtil` converts them: `translateMatrixToBone` negates
-  the animated X, `rotateMatrixAroundBone` negates the animated X and Y and multiplies the axes in the
-  Z, Y, X order (Blockbench's default Euler order is X, Y, Z). The rig itself is not mirrored
-  (`FpGeoModel` already negates the exported geo coordinates, so the bones sit exactly where the
-  bbmodel puts them); only the animation values differ. That conversion is **always** applied by the
-  renderer, so the **PAL first-person axes** toggle is on by default and the preview matches the game
-  out of the box. Turn it off only to look at the raw values as Blockbench stores them.
+* **Rotation order.** Blockbench composes a bone's rotation in the X, Y, Z order of the keyframe
+  panel, while `FpArmRenderUtil.rotateMatrixAroundBone` multiplies the axes in the Z, Y, X order, so a
+  bone rotated around more than one axis is drawn differently in each. The plugin re-orders the bones
+  on every frame, so the preview shows the composition the game uses. The *values* need no conversion:
+  the AzureLib exporter mirrors the authored animation when it writes the `.animation.json` (X for
+  positions, X and Y for rotations) and the renderer mirrors them back, so the values this bbmodel
+  holds are exactly the ones the game applies.
 * **Rest pose.** A bone whose *rest* rotation is not zero is not reproduced the way the renderer does
   it: Blockbench adds the animation to the rest rotation, while the renderer applies the animation
   values alone. The `player_arms_import.bbmodel` rig has zero rest rotations, so this does not show

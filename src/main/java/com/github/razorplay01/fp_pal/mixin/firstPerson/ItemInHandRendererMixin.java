@@ -63,10 +63,11 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 /**
  * Controls which vanilla first-person item passes are cancelled while a first-person animation is
- * playing. Arms are replaced by the {@code fp_*} rig in {@link FpArmRendererMixin}, but the held
- * items always keep their vanilla rendering: the only item this mixin hides is one that
- * {@code FirstPersonConfiguration} explicitly asks to hide. In particular, an item in a hand that
- * the active clip does not animate keeps its vanilla transform and stays visible.
+ * playing. Arms are replaced by the {@code fp_*} rig in {@link FpArmRendererMixin}, and the held items
+ * are still drawn by vanilla's own item renderer (only the frame they are drawn in comes from the
+ * animation): the only item this mixin hides is one that {@code FirstPersonConfiguration} explicitly
+ * asks to hide. In particular, an item in a hand that the active clip does not animate keeps its
+ * vanilla transform and stays visible.
  */
 @Mixin(ItemInHandRenderer.class)
 public class ItemInHandRendererMixin {

@@ -323,6 +323,49 @@
 					}
 				}
 			}
+		},
+		"fp_both_hands_test2": {
+			"loop": true,
+			"animation_length": 0.5,
+			"bones": {
+				"rightArm": {
+					"position": {
+						"vector": [1.5, -6.3, -0.9]
+					},
+					"rotation": {
+						"vector": [90, 0, -180]
+					}
+				},
+				"leftArm": {
+					"position": {
+						"vector": [-1.5, -6.3, -0.9]
+					},
+					"rotation": {
+						"vector": [90, 0, -180]
+					}
+				},
+				"fp_r_item": {
+					"position": {
+						"vector": [0, 13, -7]
+					},
+					"rotation": {
+						"0": {
+							"vector": [0, -90, 0]
+						},
+						"0.5": {
+							"vector": [90, -77.5, -450]
+						}
+					}
+				},
+				"fp_l_item": {
+					"position": {
+						"vector": [0, 12, -7]
+					},
+					"rotation": {
+						"vector": [0, -90, 0]
+					}
+				}
+			}
 		}
 	}
 }

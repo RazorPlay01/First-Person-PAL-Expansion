@@ -10,6 +10,8 @@ import com.zigythebird.playeranimcore.bones.PlayerAnimBone;
 import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
 import net.minecraft.world.entity.Entity;
 import org.jetbrains.annotations.Nullable;
+import org.joml.Matrix3f;
+import org.joml.Matrix4f;
 import org.joml.Quaternionf;
 
 import java.util.Collections;
@@ -45,6 +47,52 @@ public class FpRenderState {
      * animate keeps vanilla's transform.
      */
     public static boolean isFpItemPass = false;
+
+    /**
+     * Snapshot of the pose the vanilla first-person item pass starts from, taken at the head of
+     * {@code ItemInHandRenderer#renderHandsWithItems} (see {@link #captureItemFrame(PoseStack)}).
+     */
+    private static final Matrix4f ITEM_FRAME_POSE = new Matrix4f();
+
+    /**
+     * Normal matrix that belongs to {@link #ITEM_FRAME_POSE}.
+     */
+    private static final Matrix3f ITEM_FRAME_NORMAL = new Matrix3f();
+
+    /**
+     * Whether {@link #ITEM_FRAME_POSE} holds a frame of the current one.
+     */
+    private static boolean itemFrameCaptured = false;
+
+    /**
+     * Remembers the pose the vanilla first-person item pass starts from: the view frame the hands are
+     * drawn in, before vanilla adds the hand sway and, per hand, the equip progress, the swing, the
+     * hand anchor and the use-item pose.
+     * <p>
+     * Vanilla builds all of those on top of the caller's pose and gives the animation no say, so
+     * {@code FpArmRendererMixin} rewinds to this frame before applying the animated bone poses. The
+     * arms and the held item then sit in exactly the frame the animation describes, which is what the
+     * Blockbench preview shows.
+     */
+    public static void captureItemFrame(PoseStack poseStack) {
+        PoseStack.Pose pose = poseStack.last();
+        ITEM_FRAME_POSE.set(pose.pose());
+        ITEM_FRAME_NORMAL.set(pose.normal());
+        itemFrameCaptured = true;
+    }
+
+    /**
+     * Rewinds the top of the pose stack to the frame captured by {@link #captureItemFrame(PoseStack)},
+     * dropping every transform vanilla applied to the first-person pass since then (the hand sway, the
+     * equip progress, the swing, the hand anchor and the use-item poses). Does nothing before the first
+     * capture.
+     */
+    public static void restoreItemFrame(PoseStack poseStack) {
+        if (!itemFrameCaptured) return;
+        PoseStack.Pose pose = poseStack.last();
+        pose.pose().set(ITEM_FRAME_POSE);
+        pose.normal().set(ITEM_FRAME_NORMAL);
+    }
 
     /**
      * @return true if the given entity is currently playing a first-person animation, which is what
@@ -510,6 +558,7 @@ public class FpRenderState {
         fpCameraPrevious.setToInitialPose();
         fpCameraRender.setToInitialPose();
         EXTRA_BONES.clear();
+        itemFrameCaptured = false;
         // Go back to the mod-level base transform instead of keeping the last animation's
         // firstperson_* values.
         applyAnimationDisplayTransform(null, null, null);

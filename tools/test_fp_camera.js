@@ -268,11 +268,10 @@ global.Preview = { selected: preview };
 
 // MARK: Tests
 
-// PAL's first-person renderer always converts the authored values (FpArmRenderUtil negates X on
-// positions and X/Y on rotations and composes in the Z, Y, X order), so the plugin converts by
-// default too. FP_TEST_GAME_AXES=0 exercises the raw Blockbench values instead.
-const GAME_AXES = process.env.FP_TEST_GAME_AXES !== '0';
-global.localStorage.getItem = function () { return JSON.stringify({ game_axes: GAME_AXES }); };
+// PAL's first-person renderer composes the animated rotation in the Z, Y, X order, while Blockbench
+// uses X, Y, Z, so the plugin re-orders on every frame. The values themselves are not converted: the
+// animation file is the mirror of the values the bbmodel holds and FpArmRenderUtil mirrors them back,
+// so the mesh values are the ones the game applies.
 
 function close(actual, expected, message) {
 	assert.ok(Math.abs(actual - expected) < 1e-6, message + ': expected ' + expected + ', got ' + actual);
@@ -347,29 +346,23 @@ close(snapshot.camera.roll, Math.PI / 2, 'camera roll');
 closeVector(snapshot.camera, [0, 0.52 * 16 + 4, 0.72 * 16], 'camera offset rotated by the roll');
 closeVector(snapshot.root, [0, 4, 0], 'rig compensation rotated by the roll');
 
-// 5. Arms: Blockbench applies the authored values, PAL converts them (toggle).
+// 5. Arms: the authored values are the ones the game applies, so only the Euler order changes.
 resetAnimation();
-animate(rightArm, [1.5, -6.3, -0.9], [90, 0, -180]);
+// rightArm of fp_both_hands_test2 in player_arms_import.bbmodel.
+animate(rightArm, [-1.5, -6.3, -0.9], [-90, 0, -180]);
 frame();
-if (GAME_AXES) {
-	closeVector(snapshot.rightArm.position, [6 - 1.5, 6 - 6.3, 6 - 0.9], 'arm X position negated');
-	closeQuaternion(snapshot.rightArm.quaternion, eulerQuaternion(-90, 0, -180, 'ZYX'), 'arm rotation negated and reordered');
-} else {
-	closeVector(snapshot.rightArm.position, [7.5, -0.3, 5.1], 'arm keeps the authored position');
-	closeQuaternion(snapshot.rightArm.quaternion, eulerQuaternion(90, 0, -180, 'XYZ'), 'arm keeps the authored rotation');
-}
+closeVector(snapshot.rightArm.position, [6 - 1.5, 6 - 6.3, 6 - 0.9], 'arm keeps the authored position');
+closeQuaternion(snapshot.rightArm.quaternion, eulerQuaternion(-90, 0, -180, 'ZYX'), 'arm rotation composed in the game order');
 
 // 6. The model is restored after the frame, so a paused timeline is not corrupted.
-animate(rightItem, [1.5, -4, -6], [10, 15, 5]);
+animate(rightItem, [-1.5, -4, -6], [0, 90, 0]);
 frame();
-closeVector(rightArm.mesh.position, [7.5, -0.3, 5.1], 'arm restored after the frame');
-closeVector(rightItem.mesh.position, [7.5, 2, 0], 'item restored after the frame');
+closeVector(rightArm.mesh.position, [4.5, -0.3, 5.1], 'arm restored after the frame');
+closeVector(rightItem.mesh.position, [4.5, 2, 0], 'item restored after the frame');
 close(rightItem.mesh.scale.x, 1, 'item scale restored after the frame');
 assert.strictEqual(rightItem.mesh.rotation.order, 'XYZ', 'Euler order restored after the frame');
 
-console.log(GAME_AXES
-	? 'PAL axis conversion: OK'
-	: 'raw Blockbench values: OK');
+console.log('PAL rotation order: OK');
 
 
 

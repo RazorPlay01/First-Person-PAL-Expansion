@@ -356,20 +356,44 @@ public final class FpArmRenderUtil {
     }
 
     /**
-     * Applies the item bone offset ({@code fp_right_item} / {@code fp_left_item}) in the model frame.
-     * In AzureLib the item is part of the same model and is a sibling of the arm bones, so only the
-     * rig root and the item bone affect it; the arms do not drag the item.
+     * Applies the item bone offset ({@code fp_right_item} / {@code fp_left_item}) in the model frame,
+     * keeping the item on the model origin (the convention of a rig authored around the hand anchor,
+     * {@code fpDisplayAnchor: "hand"}). In AzureLib the item is part of the same model and is a sibling
+     * of the arm bones, so only the rig root and the item bone affect it; the arms do not drag the item.
+     * <p>
+     * A rig authored around the model origin (the {@code player_arms_import.bbmodel} convention) uses
+     * {@link #applyItemTransform(PoseStack, PlayerAnimBone, float[])} with the bone pivot instead, so
+     * the item lands on the animated hand.
      */
     public static void applyItemTransform(PoseStack poseStack, PlayerAnimBone item) {
-        applyBoneTransform(poseStack, item, NO_PIVOT);
+        applyItemTransform(poseStack, item, NO_PIVOT);
     }
 
     /**
-     * Applies the item bone offset around a pivot in model units ({@link #RIGHT_ITEM_PIVOT} /
-     * {@link #LEFT_ITEM_PIVOT}), which is how the item bone is authored in Blockbench.
+     * Applies the item bone transform so the item model ends up on the bone itself.
+     * <p>
+     * Vanilla draws the item's {@code 1x1x1} model box around the origin of the frame it is handed
+     * (see {@code ItemRenderer#render}, which does {@code translate(-0.5, -0.5, -0.5)}), so the box has
+     * to be moved to the bone origin before the bone rotation is applied. Rotating it about the pivot
+     * without that translation (the {@link #applyBoneTransform} form) leaves the box on the model
+     * origin and offsets it by {@code -R * pivot} - up to {@code 0.65} blocks, and in a different
+     * direction per hand, because the item bones sit at {@code x = ±6}. That is the offset that made
+     * the held item land next to the animated hand instead of on it.
+     * <p>
+     * The arms do not need this: {@link #renderArmForBone} places the vanilla arm mesh on the bone
+     * pivot, so {@link #applyBoneTransform}'s un-pivot already lands it on the bone origin. A rig
+     * authored around the hand anchor ({@code fpDisplayAnchor: "hand"}) keeps the model-origin
+     * convention, which is why it passes {@link #NO_PIVOT} and stays unchanged.
+     *
+     * @param pivot the bone origin in model units ({@link #RIGHT_ITEM_PIVOT} /
+     *              {@link #LEFT_ITEM_PIVOT}), or {@link #NO_PIVOT} for a rig whose item sits on the
+     *              model origin
      */
     public static void applyItemTransform(PoseStack poseStack, PlayerAnimBone item, float[] pivot) {
-        applyBoneTransform(poseStack, item, pivot);
+        translateToPivotPoint(poseStack, pivot);
+        translateMatrixToBone(poseStack, item);
+        rotateMatrixAroundBone(poseStack, item);
+        scaleMatrixForBone(poseStack, item);
     }
 
     /**

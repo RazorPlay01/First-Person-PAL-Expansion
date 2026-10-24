@@ -31,13 +31,17 @@
  * halves of that effect. The roll is handled by rotating the camera itself, because a roll turns the
  * whole image, arms included.
  *
- * <h2>Why there is an axis conversion toggle</h2>
- * Blockbench applies animation values as they are stored, while {@code FpArmRenderUtil} converts
- * them: it negates the animated X and the animated X and Y rotations and composes the axes in the
- * Z, Y, X order. The rig itself is not mirrored ({@code FpGeoModel} already negates the exported geo
- * coordinates), so only the animation values differ. The "PAL first-person axes" toggle applies that
- * same conversion, which makes the preview show what the current renderer draws. Leave it off while
- * the mod uses the raw Blockbench convention.
+ * <h2>Why the rotation order is converted</h2>
+ * {@code FpArmRenderUtil.rotateMatrixAroundBone} multiplies the three rotation axes in the Z, Y, X
+ * order, while Blockbench composes them in the X, Y, Z order shown in the keyframe panel. A bone
+ * rotated around more than one axis is therefore drawn differently in each, so the preview re-orders
+ * them on every frame, without asking.
+ * <p>
+ * The <em>values</em> need no conversion. The AzureLib exporter mirrors the authored animation when it
+ * writes the {@code .animation.json} (X for positions, X and Y for rotations) and
+ * {@code FpArmRenderUtil} mirrors them back, so the renderer applies exactly the values this bbmodel
+ * holds - the ones the preview shows. Negating them here as well (which the plugin used to do)
+ * mirrored the preview against the game, item bones included.
  *
  * @author RazorPlay01
  * @license MIT
@@ -50,38 +54,35 @@
 	const PX_PER_BLOCK = 16;
 
 	/**
-	 * Mirrors {@code FpArmRenderUtil.applyCameraAnchor} (0, -0.52, -0.72) and Minecraft's default
-	 * FOV. Change these if the mod's anchor changes.
+	 * Mirrors {@code FpArmRenderUtil.applyCameraAnchor} (0, -0.52, -0.72): the eye sits
+	 * {@code EYE_HEIGHT} blocks above the rig origin and {@code RIG_DISTANCE} blocks behind it. These
+	 * are constants of the mod, not settings - if the mod changes them, they change here.
+	 */
+	const EYE_HEIGHT = 0.52;
+	const RIG_DISTANCE = 0.72;
+
+	/**
+	 * What the viewport cannot derive from the model itself. Everything the game does deterministically
+	 * (the anchor, the fp_camera preview, the rotation order) is applied without asking, so the dialog
+	 * only holds the per-clip display transform and the two things that depend on the setup (the FOV
+	 * option of the game and the anchor of the clip).
 	 */
 	const DEFAULTS = {
 		fov: 70,
-		height: 0.52,
-		distance: 0.72,
 		offset_x: 0,
 		offset_y: 0,
 		offset_z: 0,
 		scale: 1,
-		roll: true,
-		camera_move: true,
 		hand_anchored: false,
-		// PAL's first-person renderer always converts the authored values
-		// (FpArmRenderUtil#translateMatrixToBone negates X, #rotateMatrixAroundBone negates X and Y and
-		// composes in the Z, Y, X order), so the preview needs the conversion on to match the game.
-		game_axes: true,
 	};
 
 	const FIELDS = {
 		fov: { label: 'Field of view (the Minecraft "FOV" option)', type: 'number', min: 30, max: 120, step: 1 },
-		height: { label: 'Eye height above the rig origin (blocks)', type: 'number', min: -4, max: 4, step: 0.01 },
-		distance: { label: 'Distance from the eye to the rig origin (blocks)', type: 'number', min: 0.05, max: 8, step: 0.01 },
 		offset_x: { label: 'fpDisplayTranslation X (model pixels)', type: 'number', min: -64, max: 64, step: 0.5 },
 		offset_y: { label: 'fpDisplayTranslation Y (model pixels)', type: 'number', min: -64, max: 64, step: 0.5 },
 		offset_z: { label: 'fpDisplayTranslation Z (model pixels)', type: 'number', min: -64, max: 64, step: 0.5 },
 		scale: { label: 'fpDisplayScale', type: 'number', min: 0.1, max: 4, step: 0.05 },
-		roll: { label: 'Preview the fp_camera roll (its rotation Z)', type: 'toggle' },
-		camera_move: { label: 'Preview the fp_camera position (moves the camera and the rig, like in game)', type: 'toggle' },
 		hand_anchored: { label: 'The clip uses fpDisplayAnchor "hand" (arms on the vanilla hand anchor)', type: 'toggle' },
-		game_axes: { label: 'Convert bone values to the PAL first-person axes (negate X position and X/Y rotation)', type: 'toggle' },
 	};
 
 	let settings = Object.assign({}, DEFAULTS);
@@ -192,8 +193,8 @@
 		const handAnchor = settings.hand_anchored ? -0.56 * PX_PER_BLOCK : 0;
 		return {
 			x: -settings.offset_x + handAnchor,
-			y: settings.height * PX_PER_BLOCK - settings.offset_y,
-			z: settings.distance * PX_PER_BLOCK - settings.offset_z,
+			y: EYE_HEIGHT * PX_PER_BLOCK - settings.offset_y,
+			z: RIG_DISTANCE * PX_PER_BLOCK - settings.offset_z,
 		};
 	}
 
@@ -212,17 +213,15 @@
 		// fp_camera translation: Minecraft's camera moves along its own axes, and the rig is drawn in
 		// view space afterwards, so the preview moves the camera and moves the rig back by the same
 		// amount (see applyRigCompensation) to keep the arms where they are on screen.
-		if (settings.camera_move) {
-			const offset = fpCameraOffset();
-			if (offset) {
-				position.x += offset.x;
-				position.y += offset.y;
-				position.z += offset.z;
-			}
+		const offset = fpCameraOffset();
+		if (offset) {
+			position.x += offset.x;
+			position.y += offset.y;
+			position.z += offset.z;
 		}
 
 		camera.position.set(position.x, position.y, position.z);
-		camera.rotation.set(0, 0, settings.roll ? fpCameraRoll() : 0);
+		camera.rotation.set(0, 0, fpCameraRoll());
 
 		// Keep the orbit target one unit straight ahead (-Z) instead of at the model centre. The
 		// controls are frozen while the mode is on, but a consistent target keeps the state sane for
@@ -346,7 +345,8 @@
 	/**
 	 * @return the animated offset of a bone in the units Blockbench stores it in: degrees for
 	 * rotations, model pixels for positions. Blockbench composes it on top of the rest pose
-	 * ({@code mesh = origin + animation}), which is what the animation file holds.
+	 * ({@code mesh = origin + animation}); those are also the values the renderer applies, because the
+	 * animation file holds their mirror and {@code FpArmRenderUtil} mirrors them back.
 	 */
 	function animatedOffset(group) {
 		const mesh = group.mesh;
@@ -364,17 +364,17 @@
 	}
 
 	/**
-	 * Replicates the axis conventions of PAL's first-person renderer, which are not the ones
-	 * Blockbench shows.
+	 * Composes the bone rotations in the Euler order of PAL's first-person renderer, which is not the
+	 * one Blockbench uses.
 	 * <p>
-	 * {@code FpArmRenderUtil.translateMatrixToBone} negates the animated X and
-	 * {@code rotateMatrixAroundBone} negates the animated X and Y and multiplies the three axes in
-	 * the Z, Y, X order (Blockbench's default Euler order is X, Y, Z). The rig itself is not
-	 * mirrored: {@code FpGeoModel} already negates the exported geo coordinates, so the bones sit
-	 * exactly where the bbmodel puts them. Only the animation values are converted, which is why the
-	 * offsets are read out of the mesh and written back mirrored.
+	 * {@code FpArmRenderUtil.rotateMatrixAroundBone} multiplies the three axes in the Z, Y, X order,
+	 * while Blockbench composes them in the X, Y, Z order of the keyframe panel, so a bone rotated
+	 * around more than one axis ends up drawn differently. Only the order is converted: the animation
+	 * file is the mirror of the values this bbmodel holds (see the plugin header) and the renderer
+	 * mirrors them back, so the mesh values are exactly the ones the game applies. It runs on every
+	 * frame like the rest of the game's transforms, because it is never wrong.
 	 */
-	function applyGameAxes() {
+	function applyGameRotationOrder() {
 		const undos = [];
 		let groups;
 		try {
@@ -383,28 +383,18 @@
 			return function () { };
 		}
 
-		const toRadians = Math.PI / 180;
 		for (const group of groups) {
-			if (!group || !group.mesh) continue;
+			if (!group || !group.mesh || !group.mesh.rotation) continue;
 			// fp_camera is authored directly in view space and PAL applies it without conversion
-			// (see FpCameraUtil), so it is left alone.
+			// (see FpCameraUtil), so it keeps Blockbench's order.
 			if (String(group.name).toLowerCase() === CAMERA_BONE) continue;
-
-			const offset = animatedOffset(group);
-			if (offset.x === 0 && offset.rotX === 0 && offset.rotY === 0) continue;
+			if (group.mesh.rotation.order === 'ZYX') continue;
 
 			const mesh = group.mesh;
-			const rest = group.origin || [0, 0, 0];
-			const restRotation = group.rotation || [0, 0, 0];
 			undos.push(saveTransform(mesh));
-
-			mesh.position.x = rest[0] - offset.x;
 			mesh.rotation.order = 'ZYX';
-			mesh.rotation.set(
-				(restRotation[0] - offset.rotX) * toRadians,
-				(restRotation[1] - offset.rotY) * toRadians,
-				(restRotation[2] + offset.rotZ) * toRadians
-			);
+			// Writing the same angles back recomputes the quaternion with the new order.
+			mesh.rotation.set(mesh.rotation.x, mesh.rotation.y, mesh.rotation.z);
 			mesh.updateMatrix();
 		}
 
@@ -431,7 +421,7 @@
 		const offset = animatedOffset(group);
 		if (offset.x === 0 && offset.y === 0 && offset.z === 0) return null;
 
-		const roll = settings.roll ? fpCameraRoll() : 0;
+		const roll = fpCameraRoll();
 		const cos = Math.cos(roll);
 		const sin = Math.sin(roll);
 		// The camera rotation is (0, 0, roll), so its local axes are the world ones rolled around Z,
@@ -470,8 +460,8 @@
 	function wrapRender() {
 		const undos = [];
 		try {
-			if (settings.game_axes) undos.push(applyGameAxes());
-			if (settings.camera_move) undos.push(applyRigCompensation());
+			undos.push(applyGameRotationOrder());
+			undos.push(applyRigCompensation());
 		} catch (error) {
 			warn('Could not apply the in-game model transforms', error);
 		}
@@ -637,7 +627,7 @@
 		title: 'First Person Camera',
 		icon: 'photo_camera',
 		author: 'RazorPlay01',
-		description: 'Places the viewport camera where Minecraft\'s first-person camera is and applies the in-game first-person transforms (camera bone, held items), so first-person arm rigs can be animated from the same view as in game.',
+		description: 'Places the viewport camera where Minecraft\'s first-person camera is and applies the in-game first-person transforms (camera bone, rotation order), so first-person arm rigs can be animated from the same view as in game.',
 		tags: ['Animation', 'Minecraft'],
 		version: '1.1.0',
 		min_version: '4.9.0',

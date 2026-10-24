@@ -59,9 +59,11 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
  * <p>
  * The held item is deliberately <b>not</b> drawn here. It keeps using vanilla's item renderer (with
  * its correct lighting, model display transform, foil and glint); this mixin only applies the
- * {@code fp_r_item} / {@code fp_l_item} bone pose around that call. Drawing the item a second time
- * with {@code ItemRenderer#renderStatic} produced a fully black item, because that manual call ran
- * outside the render state vanilla's item pass sets up.
+ * {@code fp_r_item} / {@code fp_l_item} bone pose around that call, after rewinding the pose to the
+ * frame the vanilla hand pass started from, so none of vanilla's first-person item transforms (hand
+ * sway, equip progress, swing, hand anchor, use-item poses) leak into the animated pose. Drawing the
+ * item a second time with {@code ItemRenderer#renderStatic} produced a fully black item, because that
+ * manual call ran outside the render state vanilla's item pass sets up.
  */
 @Mixin(ItemInHandRenderer.class)
 public class FpArmRendererMixin {
@@ -92,6 +94,28 @@ public class FpArmRendererMixin {
         if (FpRenderState.isPlayerArmMode(this.minecraft.player)) {
             ci.cancel();
         }
+    }
+
+    /**
+     * Remembers the frame the vanilla first-person hand pass starts from, before vanilla applies the
+     * hand sway and the per-hand item transforms. {@link FpRenderState#restoreItemFrame} rewinds to it
+     * before the animated poses are applied, so neither the arms nor the held item inherit transforms
+     * that are not part of the animation.
+     */
+    @Inject(method = "renderHandsWithItems", at = @At("HEAD"))
+    private void playerAnimLib$captureItemFrame(float partialTicks, PoseStack poseStack,
+                                                //? if >=1.21.11 {
+                                                //SubmitNodeCollector buffer,
+                                                //?} else {
+                                                MultiBufferSource.BufferSource buffer,
+                                                //?}
+                                                //? if >=26.3 {
+                                                //PlayerRenderState playerState, FirstPersonHandsAndItemsRenderState handsState,
+                                                //?} else {
+                                                LocalPlayer localPlayer, int combinedLight,
+                                                //?}
+                                                CallbackInfo ci) {
+        FpRenderState.captureItemFrame(poseStack);
     }
 
     @Inject(method = "renderHandsWithItems", at = @At("TAIL"))
@@ -151,6 +175,10 @@ public class FpArmRendererMixin {
         // fp_camera is applied to the real Camera by CameraMixin. Applying it here as well would move
         // the arms twice relative to the animated view.
 
+        // Back to the frame the vanilla hand pass started from: the hand sway vanilla applied on top of
+        // it is not part of the animation, and would make the rig drift while the camera turns.
+        FpRenderState.restoreItemFrame(poseStack);
+
         // The frame of the rig: camera-centred by default, so a rig authored around the model origin
         // (arms at x = ±6) renders centred like in Blockbench. {@code fpDisplayAnchor: "hand"} keeps
         // the AzureLib item hand frame instead, for gun rigs whose arms sit around the item.
@@ -181,9 +209,18 @@ public class FpArmRendererMixin {
     }
 
     /**
-     * Makes the held item follow the arm that holds it together with the fp_*_item offset, while the
-     * rest of the vanilla first-person item rendering (swing, equip, use animations, maps, crossbows,
-     * spyglass...) is left untouched.
+     * Poses the held item with the animation's {@code fp_*_item} bone (and the animated model root) and
+     * nothing else.
+     * <p>
+     * Vanilla builds a long chain of transforms for a first-person item: the hand sway of the whole hand
+     * pass, the swing translation and rotations, the equip progress, the hand anchor, the
+     * {@code firstperson_*} display transform of the item model and a per-item use pose (bow, crossbow,
+     * trident, spear, food, shield, brush, spyglass, map...). None of that is part of the animation, and
+     * all of it moved the item away from the pose the clip describes, so the item never lined up with
+     * Blockbench. Rewinding to the frame the vanilla pass started from (see
+     * {@link FpRenderState#restoreItemFrame}) drops the whole chain at once; the anchor the arms use is
+     * re-applied here so the item stays in the same frame as the hands, and the item model's display
+     * transform is skipped by {@code ItemTransformMixin} while this pose is up.
      */
     @Unique
     private void playerAnimLib$pushFpItem(Entity entity, boolean right, PoseStack poseStack) {
@@ -197,17 +234,28 @@ public class FpArmRendererMixin {
         if (right ? !config.isShowRightItem() : !config.isShowLeftItem()) return;
 
         poseStack.pushPose();
-        // In camera mode the arms are centred on the view axis, so the item has to leave the vanilla
-        // right/left hand anchor as well; otherwise it stays in the bottom-right corner while the
-        // animated hands are centred. Y and Z are kept, since that is what puts the rig in front of
-        // the camera.
-        if (!FpRenderState.isHandAnchored()) {
-            poseStack.translate(right ? -0.56F : 0.56F, 0.0F, 0.0F);
+        // Drop every vanilla first-person transform: the hand sway, the equip progress, the swing and
+        // the use-item poses are applied before this point and would offset the item away from the
+        // animated pose.
+        FpRenderState.restoreItemFrame(poseStack);
+        // The anchor the arm pass uses, so the item and the hands share one frame. In camera mode the
+        // rig is centred on the view axis; {@code fpDisplayAnchor: "hand"} keeps the vanilla hand
+        // anchor instead, for gun rigs whose arms sit around the held item.
+        if (FpRenderState.isHandAnchored()) {
+            boolean leftHandAnchor = entity instanceof LivingEntity living && living.getMainArm() == HumanoidArm.LEFT;
+            FpArmRenderUtil.applyHandTransform(poseStack, leftHandAnchor);
+        } else {
+            FpArmRenderUtil.applyCameraAnchor(poseStack);
         }
-        // The swing/equip transforms are already part of this frame, so only the animated model root
-        // and the item bone are applied. Vanilla's display transform for the item is skipped while this
-        // pose is up (see ItemTransformMixin), so the item ends up where the bone puts it.
         FpArmRenderUtil.applyRootTransform(poseStack, FpRenderState.fpPlayerArms, FpRenderState.fpRootPivot);
+        // In this rig convention the item bone is a child of the arm bone, so the arm drags the item
+        // with it (rotating the hand moves the item, which is what the Blockbench outliner shows).
+        // The hand-anchored convention keeps the item on the model origin instead, because there the
+        // item *is* the rig centre and the arms are placed around it.
+        if (!FpRenderState.isHandAnchored()) {
+            FpArmRenderUtil.applyArmTransform(poseStack, right ? FpRenderState.fpRightArm : FpRenderState.fpLeftArm,
+                    right ? FpArmRenderUtil.RIGHT_ARM_PIVOT : FpArmRenderUtil.LEFT_ARM_PIVOT);
+        }
         FpArmRenderUtil.applyItemTransform(poseStack, right ? FpRenderState.fpRightItem : FpRenderState.fpLeftItem,
                 FpRenderState.isHandAnchored() ? FpArmRenderUtil.NO_PIVOT
                         : (right ? FpArmRenderUtil.RIGHT_ITEM_PIVOT : FpArmRenderUtil.LEFT_ITEM_PIVOT));

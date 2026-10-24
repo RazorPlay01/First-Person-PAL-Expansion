@@ -39,7 +39,7 @@ Tamaño actual (líneas): 3.301 en 16 ficheros Java.
 | `assets/player_animation_library/fp_models/peacemaker.geo.json` | `assets/<modid>/fp_models/` |
 | `assets/player_animation_library/textures/fp/*` | `assets/<modid>/textures/fp/` |
 | `player_arms_import.bbmodel` (raíz de PAL) | raíz del addon |
-| `blockbench/` (plugin + README + capturas) | raíz del addon |
+| `blockbench/` (plugin + README) | raíz del addon |
 | `tools/test_fp_camera.js` (arnés del plugin) | raíz del addon |
 
 ## Adaptaciones necesarias al mover
@@ -296,21 +296,45 @@ El port resuelve cada punto así:
   `DeltaTracker` (`//? if >=26.3`), del que se extrae el partial tick con
   `getGameTimeDeltaPartialTick(true)`.
 
-### The held item and vanilla's display transform
+### The held item and the transforms vanilla applies to it
 
 `FpArmRendererMixin` keeps vanilla's item pass and applies the animation's `fp_player_arms` and
 `fp_r_item` / `fp_l_item` bones around it, so the held item follows the clip without a second,
-hand-rolled item render (which produced a black item). Two things vanilla adds to that frame are not
-part of the animation and made the item land somewhere else than Blockbench shows:
+hand-rolled item render (which produced a black item). Vanilla builds a whole chain of transforms for a
+first-person item, none of which belongs to the clip, so the addon rewinds the pose to the frame the
+vanilla hand pass started from (`FpRenderState#captureItemFrame` / `#restoreItemFrame`, taken at the
+head of `ItemInHandRenderer#renderHandsWithItems`) and re-applies only the anchor the arms use:
 
 | Transform | Where it comes from | What the addon does |
 | --- | --- | --- |
-| hand anchor `(±0.56, -0.52, -0.72)` | `ItemInHandRenderer#applyItemArmTransform`, pushed **before** `renderItem` | its lateral part is cancelled in camera mode (`translate(∓0.56, 0, 0)`), which leaves the camera anchor `(0, -0.52, -0.72)` the rig is authored around |
+| hand sway `rotateX((viewXRot - xBob) * 0.1)` / `rotateY((viewYRot - yBob) * 0.1)` | `ItemInHandRenderer#renderHandsWithItems`, before the per-hand passes | dropped by the rewind, so the rig stays rigid to the camera like the preview |
+| equip progress (`-0.52F + equip * -0.6F`) and the lateral hand anchor `±0.56` | `ItemInHandRenderer#applyItemArmTransform`, pushed **before** `renderItem` | dropped by the rewind; the camera anchor `(0, -0.52, -0.72)` (or the hand anchor with `fpDisplayAnchor: "hand"`) is applied instead, the same frame the arms use |
+| swing (`translate(i * s, r, l)` and `applyItemArmAttackTransform`) | `ItemInHandRenderer#renderArmWithItem` | dropped by the rewind; the clip animates the swing itself |
+| use-item poses (bow, crossbow, trident, spear, food, shield, brush, spyglass) | `ItemInHandRenderer#renderArmWithItem` | dropped by the rewind (a held map keeps its own renderer, which bypasses `renderItem`) |
 | item display transform `rotationXYZ(0, -90, 25)`, `scale(0.68)`, `translate(i * 1.13, 3.2, 1.13)` | `ItemTransform#apply` for the `firstperson_righthand` / `firstperson_lefthand` context, applied **after** the injected bone pose | skipped by `ItemTransformMixin` while the item bone pose is up |
 
-The display transform is the important one: it belongs to the **item model**, not to the clip, so it
-rotates and scales the item out of the frame the `fp_*_item` bone describes. That is why a rig
-previewed in Blockbench never matched the game even when the animation itself was right.
+With the chain gone the item lands exactly where the `fp_*_item` bone puts it, in the same frame as the
+arms, which is what Blockbench previews. The item model's `1×1×1` box is centred on the bone origin
+(vanilla's `translate(-0.5, -0.5, -0.5)` inside `ItemRenderer#render`), so a Blockbench placeholder for
+the item has to be centred on the bone origin as well. The arms get there by being drawn on the bone
+pivot, which `applyBoneTransform`'s un-pivot maps onto the bone origin; the item model is drawn around
+the frame origin instead, so `applyItemTransform` translates it to the pivot before rotating. A rig with
+`fpDisplayAnchor: "hand"` keeps the model-origin convention (its item bone passes `NO_PIVOT`), because
+there the item *is* the model origin.
+
+In the model-origin convention the item bone is a child of the arm bone, in the model and in the
+renderer:
+
+```
+fp_player_arms
+  rightArm  -> cube rightArm, fp_r_item -> cube rightItem
+  leftArm   -> cube leftArm,  fp_l_item -> cube leftItem
+fp_camera
+```
+
+`FpArmRendererMixin` applies the arm bone before the item bone in the item pass, so rotating the hand
+drags the item with it, exactly like the Blockbench outliner shows. The hand-anchored convention keeps
+the item bone independent, because there the item is the rig centre and the arms are placed around it.
 
 `ItemTransformMixin` cancels `ItemTransform#apply` only for the frames in which
 `FpArmRendererMixin` actually pushed an item bone pose (`FpRenderState.isFpItemPass`), so the
