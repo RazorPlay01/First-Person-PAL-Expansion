@@ -3,6 +3,7 @@ package com.github.razorplay01.fp_pal.firstperson;
 import net.minecraft.resources.ResourceLocation;
 import org.jetbrains.annotations.Nullable;
 
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -12,6 +13,10 @@ import java.util.Map;
  * Example: "player_animation_library:reload" -> "player_animation_library:fp_reload"
  */
 public class FpSyncRegistry {
+    private FpSyncRegistry() {
+        /* This utility class should not be instantiated */
+    }
+
 
     /**
      * Direct mapping from 3rd person animation to FP animation.
@@ -62,6 +67,6 @@ public class FpSyncRegistry {
      * @return all registered pairings.
      */
     public static Map<ResourceLocation, ResourceLocation> getAllPairs() {
-        return java.util.Collections.unmodifiableMap(THIRD_TO_FP);
+        return Collections.unmodifiableMap(THIRD_TO_FP);
     }
 }

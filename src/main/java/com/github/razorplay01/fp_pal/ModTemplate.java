@@ -33,8 +33,6 @@ public class ModTemplate {
 	public static void onInitializeClient() {
 		LOGGER.info("Initializing {} Client on {}", MOD_ID, ModTemplate.xplat().loader());
 		LOGGER.debug("{}: { version: {}; friendly_name: {} }", MOD_ID, MOD_VERSION, MOD_FRIENDLY_NAME);
-		// Registers the first-person animation layer factory. It has to be in place before any player
-		// is created, because PAL builds each player's animation stack from the registered factories.
 		FpAnimationSystem.init();
 	}
 

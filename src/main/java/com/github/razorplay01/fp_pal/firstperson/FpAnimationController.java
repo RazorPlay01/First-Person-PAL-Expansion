@@ -49,8 +49,7 @@ public class FpAnimationController extends PlayerAnimationController {
 
     public FpAnimationController(
             //? if >=1.21.11 {
-            /*// PAL 1.1.6 moved the controller from the player to the avatar API: Avatar is the base
-            // class PlayerRenderer and PlayerAnimManager work with, and LocalPlayer is still a subtype.
+            /*
             Avatar player,
             *///?} else {
             AbstractClientPlayer player,

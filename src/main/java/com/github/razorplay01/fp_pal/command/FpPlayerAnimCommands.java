@@ -45,6 +45,10 @@ import java.util.Map;
  */
 @SuppressWarnings({"unchecked", "unused"})
 public class FpPlayerAnimCommands {
+    private FpPlayerAnimCommands() {
+        /* This utility class should not be instantiated */
+    }
+
 
     /**
      * Send a message to the player (works with both ClientSuggestionProvider and CommandSourceStack).
@@ -54,7 +58,7 @@ public class FpPlayerAnimCommands {
             cmdSource.sendSuccess(() -> message, false);
         } else if (Minecraft.getInstance().player != null) {
             //? if >=1.21.11 && <26.1.2 {
-            /*// 1.21.11 renamed the client chat helper to displayClientMessage; 26.x moved it back.
+            /*
             Minecraft.getInstance().player.displayClientMessage(message, false);
             *///?} else {
             Minecraft.getInstance().player.sendSystemMessage(message);
@@ -121,13 +125,13 @@ public class FpPlayerAnimCommands {
                 )
                 // /fp_anim bones - Print active bones and the extra-bone transforms
                 .then(Commands.literal("bones")
-                        .executes(ctx -> executeBones(ctx))
+                        .executes(FpPlayerAnimCommands::executeBones)
                 )
                 // /fp_anim model [id] [texture] - Preview an AzureLib/Bedrock item model in first person.
                 // "off" is handled by the id argument (minecraft:off) instead of a sibling literal:
                 // Brigadier would otherwise report an ambiguity between the literal and the id argument.
                 .then(Commands.literal("model")
-                        .executes(ctx -> executeModelInfo(ctx))
+                        .executes(FpPlayerAnimCommands::executeModelInfo)
                         .then(Commands.argument("model", ResourceLocationArgument.id())
                                 .executes(ctx -> executeModel(ctx, null))
                                 .then(Commands.argument("texture", ResourceLocationArgument.id())
@@ -321,7 +325,7 @@ public class FpPlayerAnimCommands {
     }
 
     /**
-     * Loads a Bedrock geo.json for the first-person preview. The texture defaults to
+     * Loads a geo.json for the first-person preview. The texture defaults to
      * {@code <namespace>:textures/fp/<path>.png}; a second argument overrides it.
      */
     private static int executeModel(CommandContext<?> context, @Nullable ResourceLocation texture) {

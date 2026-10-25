@@ -342,7 +342,7 @@ public final class FpGeoModel {
                 // The animation has no keyframe for this bone: keep the static geo bind pose.
                 transform.setToInitialPose();
                 //? if >=26.1.2 {
-                /*// PAL 1.2 keeps the transform in public JOML vectors instead of per-axis setters.
+                /*
                 transform.getRotX() = rotationX;
                 transform.getRotY() = rotationY;
                 transform.getRotZ() = rotationZ;
@@ -352,8 +352,6 @@ public final class FpGeoModel {
                 transform.setRotZ(rotationZ);
                 //?}
             } else {
-                // AzureLib's AzBoneAnimationUpdateUtil writes the animated rotation over the bone's
-                // bind rotation instead of adding to it, so the animation value wins here too.
                 FpRenderState.copy(extra, transform);
             }
             return transform;
@@ -363,10 +361,18 @@ public final class FpGeoModel {
      * A baked cuboid. Coordinates are model pixels, already in the same mirrored frame AzureLib uses.
      */
     public static final class Cube {
-        private final float x0, y0, z0;
-        private final float sizeX, sizeY, sizeZ;
-        private final float pivotX, pivotY, pivotZ;
-        private final float rotationX, rotationY, rotationZ;
+        private final float x0;
+        private final float y0;
+        private final float z0;
+        private final float sizeX;
+        private final float sizeY;
+        private final float sizeZ;
+        private final float pivotX;
+        private final float pivotY;
+        private final float pivotZ;
+        private final float rotationX;
+        private final float rotationY;
+        private final float rotationZ;
         private final float inflate;
         private final boolean mirror;
         private final float [] boxUv;
