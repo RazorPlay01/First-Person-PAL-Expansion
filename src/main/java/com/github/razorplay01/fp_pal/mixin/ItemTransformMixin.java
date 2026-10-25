@@ -1,5 +1,6 @@
 package com.github.razorplay01.fp_pal.mixin;
 
+import com.github.razorplay01.fp_pal.firstperson.FpDebug;
 import com.github.razorplay01.fp_pal.firstperson.FpRenderState;
 import com.mojang.blaze3d.vertex.PoseStack;
 //? if >=26.1.2 {
@@ -13,19 +14,12 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 /**
- * Skips vanilla's item display transform while the first-person arm rig is drawing the held item.
+ * Skips vanilla's item display transform while the first-person arm rig is drawing the held item. That
+ * transform belongs to the item model, not the animation, so it moves the item away from the pose the
+ * {@code fp_r_item} / {@code fp_l_item} bone describes.
  * <p>
- * A held item is always drawn with the transform of its {@code ItemDisplayContext}
- * ({@code firstperson_righthand}: {@code rotationXYZ(0, -90, 25)}, {@code scale(0.68)},
- * {@code translate(i * 1.13, 3.2, 1.13)}). That transform belongs to the item model, not to the
- * animation, so it rotates, scales and moves the item away from the pose the {@code fp_r_item} /
- * {@code fp_l_item} bone describes, and a rig previewed in Blockbench never lines up with the game.
- * With it skipped the item lands exactly where the animation puts it.
- * <p>
- * It is only skipped for the frames {@code FpArmRendererMixin} actually pushes an item bone pose for
- * ({@link FpRenderState#isFpItemPass}), that is, the local player's first-person item pass while the
- * player-arm mode is active. Everything else - the inventory, dropped items, other players, and the
- * hand of a clip that does not animate that item - keeps vanilla's transform.
+ * It is only skipped while {@link FpRenderState#isFpItemPass} is set; everything else (inventory,
+ * dropped items, other players) keeps vanilla's transform.
  */
 @Mixin(ItemTransform.class)
 public class ItemTransformMixin {
@@ -33,12 +27,19 @@ public class ItemTransformMixin {
     @Inject(method = "apply", at = @At("HEAD"), cancellable = true)
     private void playerAnimLib$skipItemDisplayTransform(boolean leftHand,
                                                        //? if >=1.21.11 {
-                                                       //PoseStack.Pose pose,
+                                                       PoseStack.Pose pose,
                                                        //?} else {
-                                                       PoseStack poseStack,
+                                                       //PoseStack poseStack,
                                                        //?}
                                                        CallbackInfo ci) {
-        if (FpRenderState.isFpItemPass) {
+        boolean skip = FpRenderState.isFpItemPass;
+        if (FpDebug.logThisFrame()) {
+            FpDebug.log("itemTransform.apply leftHand=" + leftHand + " fpItemPass=" + skip
+                    + (skip ? " -> SKIPPED" : " -> APPLIED"));
+        }
+        if (skip) {
+            // Cancelling works on every version: the transform is applied to the pose stack's own Pose,
+            // so not writing it leaves the accumulated matrix untouched (writing identity would wipe it).
             ci.cancel();
         }
     }

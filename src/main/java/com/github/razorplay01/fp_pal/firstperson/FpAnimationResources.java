@@ -4,7 +4,7 @@ import com.github.razorplay01.fp_pal.ModTemplate;
 import com.zigythebird.playeranimcore.animation.Animation;
 import com.zigythebird.playeranimcore.loading.UniversalAnimLoader;
 import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.server.packs.resources.PreparableReloadListener;
 import net.minecraft.server.packs.resources.ResourceManager;
 import net.minecraft.server.packs.resources.ResourceManagerReloadListener;
@@ -25,21 +25,19 @@ import java.util.concurrent.Executor;
  * Loads from assets/modid/fp_animations/*.json
  */
 public class FpAnimationResources implements ResourceManagerReloadListener {
-    public static final ResourceLocation KEY = ModTemplate.id("fp_animation");
-    private static final Map<ResourceLocation, Animation> ANIMATIONS = new Object2ObjectOpenHashMap<>();
+    public static final Identifier KEY = ModTemplate.id("fp_animation");
+    private static final Map<Identifier, Animation> ANIMATIONS = new Object2ObjectOpenHashMap<>();
 
     /**
-     * Model id ({@code namespace:path} inside {@code fp_models/}) inferred from the file each
-     * animation was loaded from. A file such as {@code fp_animations/peacemaker.animation.json}
-     * can contain several clips ({@code firing}, {@code aim}, {@code reload}...), all of which use
-     * the same {@code peacemaker.geo.json} model and {@code textures/fp/peacemaker.png} texture.
+     * Model id inferred from the file each animation was loaded from, so several clips declared in
+     * one {@code .animation.json} share the same model and texture.
      */
-    private static final Map<ResourceLocation, ResourceLocation> SOURCE_MODELS = new Object2ObjectOpenHashMap<>();
+    private static final Map<Identifier, Identifier> SOURCE_MODELS = new Object2ObjectOpenHashMap<>();
 
     /**
      * Get an animation from the registry.
      */
-    public static @Nullable Animation getAnimation(ResourceLocation id) {
+    public static @Nullable Animation getAnimation(Identifier id) {
         return ANIMATIONS.get(id);
     }
 
@@ -47,14 +45,14 @@ public class FpAnimationResources implements ResourceManagerReloadListener {
      * Get Optional animation from registry.
      */
     @NotNull
-    public static Optional<Animation> getAnimationOptional(@NotNull ResourceLocation identifier) {
+    public static Optional<Animation> getAnimationOptional(@NotNull Identifier identifier) {
         return Optional.ofNullable(getAnimation(identifier));
     }
 
     /**
      * @return an unmodifiable map of all the animations.
      */
-    public static Map<ResourceLocation, Animation> getAnimations() {
+    public static Map<Identifier, Animation> getAnimations() {
         return Collections.unmodifiableMap(ANIMATIONS);
     }
 
@@ -64,7 +62,7 @@ public class FpAnimationResources implements ResourceManagerReloadListener {
     @NotNull
     public static Map<String, Animation> getModAnimations(@NotNull String modid) {
         HashMap<String, Animation> map = new HashMap<>();
-        for (Map.Entry<ResourceLocation, Animation> entry : ANIMATIONS.entrySet()) {
+        for (Map.Entry<Identifier, Animation> entry : ANIMATIONS.entrySet()) {
             if (entry.getKey().getNamespace().equals(modid)) {
                 map.put(entry.getKey().getPath(), entry.getValue());
             }
@@ -75,20 +73,15 @@ public class FpAnimationResources implements ResourceManagerReloadListener {
     /**
      * @return Returns true if that animation is available.
      */
-    public static boolean hasAnimation(ResourceLocation id) {
+    public static boolean hasAnimation(Identifier id) {
         return ANIMATIONS.containsKey(id);
     }
 
     /**
      * @return the model id inferred from the {@code .animation.json} file that declared this
      * animation, or {@code null} if the animation is unknown.
-     * <p>
-     * For example, {@code player_animation_library:firing} declared inside
-     * {@code fp_animations/peacemaker.animation.json} returns
-     * {@code player_animation_library:peacemaker}, which maps to
-     * {@code fp_models/peacemaker.geo.json} and {@code textures/fp/peacemaker.png}.
      */
-    public static @Nullable ResourceLocation getModelId(ResourceLocation animationId) {
+    public static @Nullable Identifier getModelId(Identifier animationId) {
         return SOURCE_MODELS.get(animationId);
     }
 
@@ -102,11 +95,11 @@ public class FpAnimationResources implements ResourceManagerReloadListener {
 
         for (var resource : manager.listResources("fp_animations", resourceLocation -> resourceLocation.getPath().endsWith(".json")).entrySet()) {
             String namespace = resource.getKey().getNamespace();
-            ResourceLocation sourceModel = ResourceLocation.fromNamespaceAndPath(namespace,
+            Identifier sourceModel = Identifier.fromNamespaceAndPath(namespace,
                     modelPath(resource.getKey().getPath()));
             try (InputStream is = resource.getValue().open()) {
                 for (var entry : UniversalAnimLoader.loadAnimations(is).entrySet()) {
-                    ResourceLocation animationId = ResourceLocation.fromNamespaceAndPath(namespace, entry.getKey());
+                    Identifier animationId = Identifier.fromNamespaceAndPath(namespace, entry.getKey());
                     ANIMATIONS.put(animationId, entry.getValue());
                     SOURCE_MODELS.put(animationId, sourceModel);
                 }
@@ -134,9 +127,9 @@ public class FpAnimationResources implements ResourceManagerReloadListener {
     }
 
     //? if <1.21.11 {
-    @Override
+    /*@Override
     public @NotNull CompletableFuture<Void> reload(PreparableReloadListener.PreparationBarrier preparationBarrier, ResourceManager resourceManager, ProfilerFiller preparationsProfiler, ProfilerFiller reloadProfiler, Executor backgroundExecutor, Executor gameExecutor) {
         return CompletableFuture.runAsync(() -> onResourceManagerReload(resourceManager), backgroundExecutor).thenCompose(preparationBarrier::wait);
     }
-    //?}
+    *///?}
 }

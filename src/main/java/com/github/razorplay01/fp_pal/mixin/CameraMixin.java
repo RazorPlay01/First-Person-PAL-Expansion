@@ -8,9 +8,9 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.world.entity.Entity;
 //? if >=1.21.11 {
-//import net.minecraft.world.level.Level;
+import net.minecraft.world.level.Level;
 //?} else {
-import net.minecraft.world.level.BlockGetter;
+//import net.minecraft.world.level.BlockGetter;
 //?}
 //? if >=26.1.2 {
 //import net.minecraft.client.renderer.state.level.CameraRenderState;
@@ -22,15 +22,9 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 /**
- * Applies the animated {@code fp_camera} bone to the real first-person camera.
- * <p>
- * Up to 1.21.11 this runs at the end of {@code Camera#setup}, after vanilla has computed the player's
- * eye position and look rotation. In 26.x the camera no longer feeds the renderer directly: the frame
- * builds a {@code CameraRenderState} from it, so the animation is applied at the head of that
- * extraction and the render state is built from the animated values.
- * <p>
- * It is deliberately limited to the local player in first person and never runs for the
- * detached/third-person camera.
+ * Applies the animated {@code fp_camera} bone to the real first-person camera, at the end of
+ * {@code Camera#setup} up to 1.21.11 and at the head of the render-state extraction in 26.x. Limited to
+ * the local player in first person.
  */
 @Mixin(Camera.class)
 public abstract class CameraMixin {
@@ -45,21 +39,20 @@ public abstract class CameraMixin {
                                              //?}
                                              CallbackInfo ci) {
         //? if >=26.3 {
-        /^// 26.3 hands the extraction a DeltaTracker instead of the partial tick the older
-        // CameraRenderState extractors took.
+        /^// 26.3 hands the extraction a DeltaTracker instead of a partial tick.
         float partialTick = deltaTracker.getGameTimeDeltaPartialTick(true);
         ^///?}
         this.playerAnimLib$applyFpCameraTo((Camera) (Object) this, partialTick);
     }
     *///?} else {
-    // 1.21.11 changed the level parameter of Camera#setup from BlockGetter to Level. Mixin compares
-    // handler parameters by exact type, so the handler has to follow the signature.
+    // 1.21.11 changed the level parameter of Camera#setup from BlockGetter to Level; Mixin compares
+    // handler parameters by exact type.
     @Inject(method = "setup", at = @At("TAIL"))
     private void playerAnimLib$applyFpCamera(
                                              //? if >=1.21.11 {
-                                             //Level level,
+                                             Level level,
                                              //?} else {
-                                             BlockGetter level,
+                                             //BlockGetter level,
                                              //?}
                                              Entity entity, boolean detached,
                                              boolean thirdPersonReverse, float partialTick,
@@ -76,9 +69,9 @@ public abstract class CameraMixin {
     private void playerAnimLib$applyFpCameraTo(Camera camera, float partialTick) {
         if (camera.isDetached()) return;
         //? if >=1.21.11 {
-        //Entity cameraEntity = camera.entity();
+        Entity cameraEntity = camera.entity();
         //?} else {
-        Entity cameraEntity = camera.getEntity();
+        //Entity cameraEntity = camera.getEntity();
         //?}
         if (!(cameraEntity instanceof LocalPlayer player)) return;
         if (!Minecraft.getInstance().options.getCameraType().isFirstPerson()) return;

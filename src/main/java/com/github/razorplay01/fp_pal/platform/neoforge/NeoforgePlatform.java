@@ -22,12 +22,12 @@ public class NeoforgePlatform implements Platform {
 	@Override
 	public String mcVersion() {
 		//~ if >1.21.7 'versionInfo()' -> 'getVersionInfo()'
-		return FMLLoader.versionInfo().mcVersion();
+		return FMLLoader.getCurrent().getVersionInfo().mcVersion();
 	}
 
 	@Override
 	public boolean isDevelopmentEnvironment() {
-		return !FMLLoader.isProduction();
+		return !FMLLoader.getCurrent().isProduction();
 	}
 	//~}
 }

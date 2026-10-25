@@ -2,8 +2,8 @@ package com.github.razorplay01.fp_pal.firstperson;
 
 import com.github.razorplay01.fp_pal.ModTemplate;
 import com.github.razorplay01.fp_pal.accessors.IFpAnimatedPlayer;
-import com.zigythebird.playeranim.accessors.IAnimatedPlayer;
-import com.zigythebird.playeranim.animation.PlayerAnimManager;
+import com.zigythebird.playeranim.accessors.IAnimatedAvatar;
+import com.zigythebird.playeranim.animation.AvatarAnimManager;
 import com.zigythebird.playeranim.api.PlayerAnimationFactory;
 import com.zigythebird.playeranimcore.animation.Animation;
 import com.zigythebird.playeranimcore.animation.RawAnimation;
@@ -14,7 +14,7 @@ import com.zigythebird.playeranimcore.enums.State;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.AbstractClientPlayer;
 import net.minecraft.client.player.LocalPlayer;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.Set;
@@ -25,7 +25,7 @@ import java.util.Set;
  */
 public class FpAnimationSystem {
 
-    public static final ResourceLocation FP_ANIMATION_LAYER_ID = ModTemplate.id("fp_factory");
+    public static final Identifier FP_ANIMATION_LAYER_ID = ModTemplate.id("fp_factory");
     private static boolean initialized = false;
     private static FpAnimationController fpController = null;
 
@@ -42,7 +42,7 @@ public class FpAnimationSystem {
         PlayerAnimationFactory.ANIMATION_DATA_FACTORY.registerFactory(FP_ANIMATION_LAYER_ID, 500,
                 player -> {
                     try {
-                        PlayerAnimManager thirdPersonManager = ((IAnimatedPlayer) player).playerAnimLib$getAnimManager();
+                        AvatarAnimManager thirdPersonManager = ((IAnimatedAvatar) player).playerAnimLib$getAnimManager();
                         FpAnimationController ctrl = new FpAnimationController(player,
                             (handler, state, animSetter) -> {
                                 FpAnimationController fpCtrl = (FpAnimationController) handler;
@@ -66,12 +66,9 @@ public class FpAnimationSystem {
                                     }
                                 }
 
-                                // Keep playing while the underlying animation is still running, otherwise
-                                // it would be stopped one tick after it starts. The animation's own loop
-                                // type is used (DEFAULT above), so looping FP animations stay active and
-                                // hold_on_last_frame ones stop when they finish. Use isRunning() instead
-                                // of isActive(): the latter is false in third person by design, but the
-                                // animation must keep ticking until it ends.
+                                // Keep playing while the animation is still running (isRunning(), not
+                                // isActive(), which is false in third person by design), so it is not
+                                // stopped one tick after it starts.
                                 if (fpCtrl.isRunning()) {
                                     if (fpCtrl.getAnimationState() == State.RUNNING) {
                                         return PlayState.CONTINUE;
@@ -84,8 +81,7 @@ public class FpAnimationSystem {
                             thirdPersonManager
                     );
                         fpController = ctrl;
-                        // Hand the controller to the player so the render mixins can reach it without
-                        // going through PAL: PAL has no first-person API of its own here.
+                        // Hand the controller to the player so the render mixins can reach it.
                         if (player instanceof IFpAnimatedPlayer fpPlayer) {
                             fpPlayer.fpPal$setFpAnimationController(ctrl);
                         }
@@ -102,20 +98,18 @@ public class FpAnimationSystem {
      * Update the FP render state. Call this every tick.
      */
     public static void updateRenderState(AbstractClientPlayer player) {
-        // FpRenderState is a single process-wide cache consumed by the local first-person renderer.
-        // Remote players also tick the same mixin; letting them write/reset it would wipe the local
-        // camera/arm state every tick.
-        if (!(player instanceof LocalPlayer)) return;
+        // FpRenderState is a process-wide cache for the local renderer; remote players tick the same
+        // mixin and must not wipe it.
+        if (!(player instanceof LocalPlayer localPlayer)) return;
 
-        if (!(player instanceof IAnimatedPlayer animatedPlayer)) {
+        if (!(player instanceof IAnimatedAvatar animatedPlayer)) {
             FpRenderState.reset();
             return;
         }
 
-        PlayerAnimManager manager = animatedPlayer.playerAnimLib$getAnimManager();
+        AvatarAnimManager manager = animatedPlayer.playerAnimLib$getAnimManager();
 
-        // Only this addon's own controller renders the arms from the fp_* bones. PAL's modes
-        // (THIRD_PERSON_MODEL, NONE or DISABLED) leave first person entirely to vanilla.
+        // Only this addon's controller renders the fp_* arms; PAL's modes leave first person to vanilla.
         if (!FpRenderState.isPlayerArmMode(player)) {
             FpRenderState.reset();
             return;
@@ -128,18 +122,13 @@ public class FpAnimationSystem {
                 ? fpController.getAnimatedBoneNames()
                 : Set.of();
 
-        // Save the previous camera transform before replacing it with this tick's value. Camera
-        // setup runs per frame, so this is what makes fp_camera motion smooth instead of 20 Hz.
+        // Save the previous camera transform so fp_camera motion can be interpolated between ticks.
         FpRenderState.beginCameraTick();
 
-        // Full transforms (position, rotation and scale) are copied here; copying only rotations would make
-        // any bone that is moved or scaled by the animation look like it does nothing. Arm presence is
-        // resolved from the animation's bone list (not from the transform), so a clip that only animates
-        // one hand skips the other completely instead of falling back to its idle pose.
+        // Full transforms are copied (position, rotation and scale), and arm/item presence is resolved
+        // from the animation's bone list, so a clip that animates only one hand skips the other.
         FpRenderState.copy(resolveRootBone(manager), FpRenderState.fpPlayerArms);
-        // PAL's AnimationLoader normalizes CamelCase bone names to snake_case
-        // (UniversalAnimLoader.getCorrectPlayerBoneName), so rightArm/leftArm from an AzureLib
-        // animation arrive here as right_arm/left_arm.
+        // PAL normalizes CamelCase bone names to snake_case, so rightArm/leftArm arrive as right_arm/left_arm.
         boolean rightArmBone = copyArmTransform(manager, animatedBoneNames, FpRenderState.fpRightArm,
                 "right_arm", "rightArm", "fp_right_arm");
         boolean leftArmBone = copyArmTransform(manager, animatedBoneNames, FpRenderState.fpLeftArm,
@@ -152,14 +141,11 @@ public class FpAnimationSystem {
         FpRenderState.setItemBoneActive(rightItemBone, leftItemBone);
         FpRenderState.copy(FpRenderState.get3DTransform(manager, "fp_camera"), FpRenderState.fpCamera);
 
-        // Keep every other animated bone (mag, slide, flash, the model root...) available so mods can
-        // render extra details, and so PAL's sound/particle keyframes keep working as usual.
+        // Keep every other animated bone available so mods can render extra details.
         if (fpController != null) {
             FpRenderState.updateExtraBones(manager, animatedBoneNames);
 
-            // The first-person display transform of the item model that owns the rig can travel with
-            // the animation (fpDisplayTranslation / fpDisplayScale), so every rig keeps its own
-            // firstperson_* values without a global hardcoded transform.
+            // The display transform can travel with the animation, so every rig keeps its own values.
             Animation currentAnimation = fpController.getCurrentAnimationInstance();
             if (currentAnimation != null) {
                 Float scale = currentAnimation.data().getNullable(FpRenderState.FP_DISPLAY_SCALE_KEY);
@@ -176,18 +162,17 @@ public class FpAnimationSystem {
 
     /**
      * AzureLib animations usually animate a model root instead of PAL's synthetic
-     * {@code fp_player_arms}. If the animation does not use the PAL root, take the first animated
-     * AzureLib-style root so the whole rig still follows the animation.
+     * {@code fp_player_arms}; the first animated one is used as the rig root.
      */
     private static final String[] AZURELIB_ROOT_BONES = {"player_arms", "playerArms", "peacemaker", "group", "root"};
 
     /**
-     * Stored pivot of the {@code peacemaker} root bone: the geo pivot is
-     * {@code [-0.03125, 1.425, -1.2375]} and AzureLib negates X when it bakes the model.
+     * Stored pivot of the {@code peacemaker} root bone (geo pivot {@code [-0.03125, 1.425, -1.2375]},
+     * with AzureLib's X negation applied).
      */
     private static final float[] PEACEMAKER_ROOT_PIVOT = new float[]{0.03125F, 1.425F, -1.2375F};
 
-    private static PlayerAnimBone resolveRootBone(PlayerAnimManager manager) {
+    private static PlayerAnimBone resolveRootBone(AvatarAnimManager manager) {
         PlayerAnimBone palRoot = FpRenderState.get3DTransform(manager, "fp_player_arms");
         if (!FpRenderState.isIdentity(palRoot)) {
             FpRenderState.fpRootPivot = FpArmRenderUtil.NO_PIVOT;
@@ -205,13 +190,12 @@ public class FpAnimationSystem {
     }
 
     /**
-     * Copies an arm bone only when the current animation actually contains it. Presence is checked
-     * against the animation's bone list, because an arm with an all-zero transform is still animated.
-     * A missing arm stays hidden instead of falling back to the idle pose.
+     * Copies an arm bone only when the animation actually contains it (a zero transform is still
+     * animated); a missing arm stays hidden.
      *
      * @return true if the animation contains any of the accepted names
      */
-    private static boolean copyArmTransform(PlayerAnimManager manager, Set<String> animatedBoneNames,
+    private static boolean copyArmTransform(AvatarAnimManager manager, Set<String> animatedBoneNames,
                                             PlayerAnimBone target, String... acceptedNames) {
         for (String name : acceptedNames) {
             if (!animatedBoneNames.contains(name)) continue;
@@ -223,13 +207,11 @@ public class FpAnimationSystem {
     }
 
     /**
-     * Resolves the short ({@code fp_r_item} / {@code fp_l_item}) and legacy
-     * ({@code fp_right_item} / {@code fp_left_item}) item bone names. Presence is checked against the
-     * animation's bone list, because an item bone with an all-zero transform is still animated.
+     * Resolves the short and legacy item bone names, checking the animation's bone list.
      *
      * @return true if the animation contains either name
      */
-    private static boolean copyItemTransform(PlayerAnimManager manager, Set<String> animatedBoneNames,
+    private static boolean copyItemTransform(AvatarAnimManager manager, Set<String> animatedBoneNames,
                                              String shortName, String legacyName, PlayerAnimBone target) {
         String selected = animatedBoneNames.contains(shortName) ? shortName
                 : animatedBoneNames.contains(legacyName) ? legacyName
@@ -246,7 +228,7 @@ public class FpAnimationSystem {
     /**
      * Play a FP animation for the given player.
      */
-    public static boolean playFpAnimation(AbstractClientPlayer player, ResourceLocation fpAnimationId) {
+    public static boolean playFpAnimation(AbstractClientPlayer player, Identifier fpAnimationId) {
         if (!FpAnimationResources.hasAnimation(fpAnimationId)) {
             ModTemplate.LOGGER.warn("FP animation not found: {}", fpAnimationId);
             return false;
@@ -260,10 +242,8 @@ public class FpAnimationSystem {
 
         controller.setCurrentFpAnimation(fpAnimationId);
 
-        // A matching item model is optional. When the animation has one
-        // (fp_models/<animation>.geo.json or the .animation.json source name, plus the same-named
-        // texture) it is selected automatically, so /fp_anim model is no longer required. The
-        // preview is global, so only resolve it for the local player.
+        // A matching item model is optional and resolved automatically; the preview is global, so only
+        // resolve it for the local player.
         if (player == Minecraft.getInstance().player) {
             FpModelRenderer.loadForAnimation(fpAnimationId);
         }
@@ -282,7 +262,7 @@ public class FpAnimationSystem {
 
     /**
      * Resolve the FP controller for the given player.
-     * Prefers the per-player captured controller (from IAnimatedPlayer), falls back to the static one.
+     * Prefers the per-player captured controller (from IAnimatedAvatar), falls back to the static one.
      */
     private static FpAnimationController getControllerFor(@Nullable AbstractClientPlayer player) {
         if (player instanceof IFpAnimatedPlayer fpPlayer) {
@@ -330,7 +310,7 @@ public class FpAnimationSystem {
     /**
      * Register a paired 3rd person + FP animation.
      */
-    public static void registerPaired(ResourceLocation thirdPersonId, ResourceLocation fpId) {
+    public static void registerPaired(Identifier thirdPersonId, Identifier fpId) {
         FpSyncRegistry.registerPaired(thirdPersonId, fpId);
     }
 }

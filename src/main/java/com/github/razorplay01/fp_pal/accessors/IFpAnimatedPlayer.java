@@ -6,7 +6,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Accessor for the first-person animation controller of a player.
  * <p>
- * The controller lives in this addon, so PAL's {@code IAnimatedPlayer} cannot expose it. The addon
+ * The controller lives in this addon, so PAL's {@code IAnimatedAvatar} cannot expose it. The addon
  * mixes this interface into {@code AbstractClientPlayer} itself, which keeps PAL untouched.
  */
 public interface IFpAnimatedPlayer {

@@ -4,7 +4,7 @@ import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.mojang.brigadier.context.CommandContext;
-import com.zigythebird.playeranim.accessors.IAnimatedPlayer;
+import com.zigythebird.playeranim.accessors.IAnimatedAvatar;
 import com.github.razorplay01.fp_pal.accessors.IFpAnimatedPlayer;
 import com.github.razorplay01.fp_pal.firstperson.FpAnimationController;
 import com.github.razorplay01.fp_pal.firstperson.FpAnimationResources;
@@ -20,9 +20,9 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.commands.CommandBuildContext;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
-import net.minecraft.commands.arguments.ResourceLocationArgument;
+import net.minecraft.commands.arguments.IdentifierArgument;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.Locale;
@@ -49,7 +49,6 @@ public class FpPlayerAnimCommands {
         /* This utility class should not be instantiated */
     }
 
-
     /**
      * Send a message to the player (works with both ClientSuggestionProvider and CommandSourceStack).
      */
@@ -58,10 +57,10 @@ public class FpPlayerAnimCommands {
             cmdSource.sendSuccess(() -> message, false);
         } else if (Minecraft.getInstance().player != null) {
             //? if >=1.21.11 && <26.1.2 {
-            /*
+            
             Minecraft.getInstance().player.displayClientMessage(message, false);
-            *///?} else {
-            Minecraft.getInstance().player.sendSystemMessage(message);
+            //?} else {
+            //Minecraft.getInstance().player.sendSystemMessage(message);
             //?}
         }
     }
@@ -74,45 +73,39 @@ public class FpPlayerAnimCommands {
             cmdSource.sendFailure(message);
         } else if (Minecraft.getInstance().player != null) {
             //? if >=1.21.11 && <26.1.2 {
-            //Minecraft.getInstance().player.displayClientMessage(message.copy().withStyle(ChatFormatting.RED), false);
+            Minecraft.getInstance().player.displayClientMessage(message.copy().withStyle(ChatFormatting.RED), false);
             //?} else {
-            Minecraft.getInstance().player.sendSystemMessage(message.copy().withStyle(ChatFormatting.RED));
+            //Minecraft.getInstance().player.sendSystemMessage(message.copy().withStyle(ChatFormatting.RED));
             //?}
         }
     }
 
     public static <T> void register(CommandDispatcher<T> dispatcher, CommandBuildContext registryAccess) {
-        // /fp_anim play <animationID> - Play a FP animation
         dispatcher.register((LiteralArgumentBuilder<T>) Commands.literal("fp_anim")
                 .then(Commands.literal("play")
-                        .then(Commands.argument("animationID", ResourceLocationArgument.id())
+                        .then(Commands.argument("animationID", IdentifierArgument.id())
                                 .suggests(new FpAnimationArgumentProvider<>())
                                 .executes(FpPlayerAnimCommands::executePlay)
                         )
                 )
-                // /fp_anim stop - Stop current FP animation
                 .then(Commands.literal("stop")
                         .executes(FpPlayerAnimCommands::executeStop)
                 )
-                // /fp_anim list - List all loaded FP animations
                 .then(Commands.literal("list")
                         .executes(FpPlayerAnimCommands::executeList)
                 )
-                // /fp_anim pairs - List all registered animation pairs
                 .then(Commands.literal("pairs")
                         .executes(FpPlayerAnimCommands::executePairs)
                 )
-                // /fp_anim pair <thirdID> <fpID> - Register a new animation pair
                 .then(Commands.literal("pair")
-                        .then(Commands.argument("thirdPersonID", ResourceLocationArgument.id())
+                        .then(Commands.argument("thirdPersonID", IdentifierArgument.id())
                                 .suggests(new AnimationArgumentProvider<>())
-                                .then(Commands.argument("fpID", ResourceLocationArgument.id())
+                                .then(Commands.argument("fpID", IdentifierArgument.id())
                                         .suggests(new FpAnimationArgumentProvider<>())
                                         .executes(FpPlayerAnimCommands::executePair)
                                 )
                         )
                 )
-                // /fp_anim mode [mode] - Print or force the first-person mode of the local player
                 .then(Commands.literal("mode")
                         .executes(ctx -> executeMode(ctx, null))
                         .then(Commands.argument("mode", StringArgumentType.word())
@@ -123,20 +116,18 @@ public class FpPlayerAnimCommands {
                                 .executes(ctx -> executeMode(ctx, ctx.getArgument("mode", String.class)))
                         )
                 )
-                // /fp_anim bones - Print active bones and the extra-bone transforms
                 .then(Commands.literal("bones")
                         .executes(FpPlayerAnimCommands::executeBones)
                 )
-                // /fp_anim model [id] [texture] - Preview an AzureLib/Bedrock item model in first person.
                 // "off" is handled by the id argument (minecraft:off) instead of a sibling literal:
                 // Brigadier would otherwise report an ambiguity between the literal and the id argument.
                 .then(Commands.literal("model")
                         .executes(FpPlayerAnimCommands::executeModelInfo)
-                        .then(Commands.argument("model", ResourceLocationArgument.id())
+                        .then(Commands.argument("model", IdentifierArgument.id())
                                 .executes(ctx -> executeModel(ctx, null))
-                                .then(Commands.argument("texture", ResourceLocationArgument.id())
+                                .then(Commands.argument("texture", IdentifierArgument.id())
                                         .executes(ctx -> executeModel(ctx,
-                                                ResourceLocationArgument.getId(ctx, "texture")))
+                                                IdentifierArgument.getId(ctx, "texture")))
                                 )
                         )
                 )
@@ -147,7 +138,7 @@ public class FpPlayerAnimCommands {
      * Play a FP animation by ID.
      */
     private static int executePlay(CommandContext<?> context) {
-        ResourceLocation animationId = context.getArgument("animationID", ResourceLocation.class);
+        Identifier animationId = context.getArgument("animationID", Identifier.class);
         Object source = context.getSource();
 
         if (!FpAnimationResources.hasAnimation(animationId)) {
@@ -193,7 +184,7 @@ public class FpPlayerAnimCommands {
      */
     private static int executeList(CommandContext<?> context) {
         Object source = context.getSource();
-        Map<ResourceLocation, com.zigythebird.playeranimcore.animation.Animation> animations = FpAnimationResources.getAnimations();
+        Map<Identifier, com.zigythebird.playeranimcore.animation.Animation> animations = FpAnimationResources.getAnimations();
 
         if (animations.isEmpty()) {
             sendMessage(source, Component.literal("No FP animations loaded.")
@@ -204,7 +195,7 @@ public class FpPlayerAnimCommands {
         sendMessage(source, Component.literal("=== Loaded FP Animations (" + animations.size() + ") ===")
                 .withStyle(ChatFormatting.GOLD));
 
-        for (ResourceLocation id : animations.keySet()) {
+        for (Identifier id : animations.keySet()) {
             sendMessage(source, Component.literal("  - " + id));
         }
 
@@ -216,7 +207,7 @@ public class FpPlayerAnimCommands {
      */
     private static int executePairs(CommandContext<?> context) {
         Object source = context.getSource();
-        Map<ResourceLocation, ResourceLocation> pairs = FpSyncRegistry.getAllPairs();
+        Map<Identifier, Identifier> pairs = FpSyncRegistry.getAllPairs();
 
         if (pairs.isEmpty()) {
             sendMessage(source, Component.literal("No animation pairs registered.")
@@ -227,7 +218,7 @@ public class FpPlayerAnimCommands {
         sendMessage(source, Component.literal("=== Animation Pairs (" + pairs.size() + ") ===")
                 .withStyle(ChatFormatting.GOLD));
 
-        for (Map.Entry<ResourceLocation, ResourceLocation> entry : pairs.entrySet()) {
+        for (Map.Entry<Identifier, Identifier> entry : pairs.entrySet()) {
             sendMessage(source, Component.literal("  " + entry.getKey() + " -> " + entry.getValue()));
         }
 
@@ -238,8 +229,8 @@ public class FpPlayerAnimCommands {
      * Register a new animation pair.
      */
     private static int executePair(CommandContext<?> context) {
-        ResourceLocation thirdPersonId = context.getArgument("thirdPersonID", ResourceLocation.class);
-        ResourceLocation fpId = context.getArgument("fpID", ResourceLocation.class);
+        Identifier thirdPersonId = context.getArgument("thirdPersonID", Identifier.class);
+        Identifier fpId = context.getArgument("fpID", Identifier.class);
         Object source = context.getSource();
 
         FpAnimationSystem.registerPaired(thirdPersonId, fpId);
@@ -299,7 +290,7 @@ public class FpPlayerAnimCommands {
      */
     private static int executeModelInfo(CommandContext<?> context) {
         Object source = context.getSource();
-        ResourceLocation modelId = FpModelRenderer.modelId();
+        Identifier modelId = FpModelRenderer.modelId();
         if (modelId == null) {
             sendMessage(source, Component.literal("No FP preview model selected. Usage: /fp_anim model <namespace:path> [texture] or /fp_anim model off")
                     .withStyle(ChatFormatting.YELLOW));
@@ -328,9 +319,9 @@ public class FpPlayerAnimCommands {
      * Loads a geo.json for the first-person preview. The texture defaults to
      * {@code <namespace>:textures/fp/<path>.png}; a second argument overrides it.
      */
-    private static int executeModel(CommandContext<?> context, @Nullable ResourceLocation texture) {
+    private static int executeModel(CommandContext<?> context, @Nullable Identifier texture) {
         Object source = context.getSource();
-        ResourceLocation modelId = context.getArgument("model", ResourceLocation.class);
+        Identifier modelId = context.getArgument("model", Identifier.class);
 
         // /fp_anim model off is parsed as the id minecraft:off. Handling it here instead of as a
         // sibling literal avoids Brigadier's "ambiguous command" warning with the id argument.
@@ -358,8 +349,8 @@ public class FpPlayerAnimCommands {
 
     /**
      * Prints the bones the current FP animation drives and the transforms of the extra (non-core)
-     * bones, so rigs that use AzureLib bones such as {@code mag}, {@code slide} or {@code flash} can
-     * be verified in game.
+     * bones, so rigs that use bones such as {@code mag}, {@code slide} or {@code flash} can be verified
+     * in game.
      */
     private static int executeBones(CommandContext<?> context) {
         Object source = context.getSource();
@@ -369,7 +360,7 @@ public class FpPlayerAnimCommands {
             return 0;
         }
 
-        if (!(player instanceof IAnimatedPlayer animated)) {
+        if (!(player instanceof IAnimatedAvatar animated)) {
             sendError(source, Component.literal("Player is not animated by PAL!"));
             return 0;
         }
@@ -384,8 +375,7 @@ public class FpPlayerAnimCommands {
             return 0;
         }
 
-        // Refresh from the live manager so the command always prints current data, even if the
-        // render state has not been updated yet this tick.
+        // Refresh from the live manager so the command always prints current data.
         FpRenderState.updateExtraBones(animated.playerAnimLib$getAnimManager(), controller.getAnimatedBoneNames());
 
         sendMessage(source, Component.literal("Active FP bones: " + controller.getActiveBoneNames())

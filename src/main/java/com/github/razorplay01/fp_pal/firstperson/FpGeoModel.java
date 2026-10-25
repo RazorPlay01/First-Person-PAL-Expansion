@@ -16,18 +16,9 @@ import java.util.Map;
 
 /**
  * Minimal Bedrock geometry (geo.json) model used by {@link FpModelRenderer} to preview an AzureLib
- * item rig in first person.
- * <p>
- * The conversion is the same one AzureLib's {@code AzBuiltinBakedModelFactory} applies, so a model
- * authored for an AzureLib {@code AzItemRenderer} lines up with PAL's first-person arm frame:
- * <ul>
- *     <li>bone pivot: {@code (-x, y, z)};</li>
- *     <li>bone rotation: raw degrees converted to radians, with X and Y negated at render time by
- *     {@link FpArmRenderUtil} (the values stored here stay raw, like PAL's animation values);</li>
- *     <li>cube origin: {@code (-(x + width), y, z)};</li>
- *     <li>cube pivot: {@code (-x, y, z)} and rotation {@code (-rx, -ry, rz)} in radians.</li>
- * </ul>
- * Units inside this class are model pixels (1/16 block); the renderer divides by 16.
+ * item rig in first person. The conversion matches AzureLib's {@code AzBuiltinBakedModelFactory}
+ * (X mirrored on pivots and cube origins, rotations kept raw). Units are model pixels (1/16 block);
+ * the renderer divides by 16.
  */
 public final class FpGeoModel {
 
@@ -342,8 +333,8 @@ public final class FpGeoModel {
                 // The animation has no keyframe for this bone: keep the static geo bind pose.
                 transform.setToInitialPose();
                 //? if >=26.1.2 {
-                /*
-                transform.getRotX() = rotationX;
+                
+                /*transform.getRotX() = rotationX;
                 transform.getRotY() = rotationY;
                 transform.getRotZ() = rotationZ;
                 *///?} else {
@@ -421,6 +412,4 @@ public final class FpGeoModel {
         public float [] faceUv(int face) { return faceUv[face]; }
     }
 }
-
-
 

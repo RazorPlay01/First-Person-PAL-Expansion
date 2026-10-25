@@ -29,7 +29,6 @@ stonecutter {
 		replace("FabricDataOutput", "FabricPackOutput")
 	}
 	replacements.string(current.parsed >= "26.2") {
-		// its name; only 26.3 renames it.
 		replace("method = \"renderHandsWithItems\"", "method = \"submitHandsWithItems\"")
 	}
 	replacements.string(current.parsed >= "26.3") {

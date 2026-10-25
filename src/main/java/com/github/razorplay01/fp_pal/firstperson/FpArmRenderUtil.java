@@ -2,54 +2,34 @@ package com.github.razorplay01.fp_pal.firstperson;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.zigythebird.playeranimcore.bones.PlayerAnimBone;
-import net.minecraft.client.model.PlayerModel;
-import net.minecraft.client.renderer.RenderType;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.model.player.PlayerModel;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.client.renderer.rendertype.RenderType;
 //? if >=1.21.11 {
-//import net.minecraft.client.renderer.RenderTypes;
+import net.minecraft.client.renderer.rendertype.RenderTypes;
 //?}
+import net.minecraft.client.renderer.entity.player.AvatarRenderer;
 import net.minecraft.client.renderer.texture.OverlayTexture;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import org.joml.Quaternionf;
 
 /**
  * Utility class for rendering player arms in first person with custom transforms.
  * <p>
- * Ported from AzureLib's {@code AzItemArmRenderUtil} (MIT License, Copyright (c) 2024 AzureDoom),
- * {@code mod.azure.azurelib.common.render.item}.
+ * 1:1 port of AzureLib's {@code AzItemArmRenderUtil} (MIT License, Copyright (c) 2024 AzureDoom),
+ * adapted only for PAL's types ({@code PlayerAnimBone} instead of {@code AzBone},
+ * {@link FpRenderBuffer} instead of {@code AzModelRenderer}).
  * <p>
- * THIS IS A 1:1 PORT of that class, adapted only for PAL's types:
- * {@code PlayerAnimBone} instead of {@code AzBone}, and {@link FpRenderBuffer} instead of
- * {@code AzModelRenderer} (the {@code getOrRefreshBufferRenderType} calls map to
- * {@link FpRenderBuffer#drawModelPart} with the {@code entitySolid} / {@code entityTranslucent}
- * render types).
- *
- * <h2>What the AzureLib system does</h2>
- * AzureLib does not animate a separate first-person arm model. The arm bones ({@code leftArm} and
- * {@code rightArm}) are part of the animated model, exactly as you author them in Blockbench.
- * While the model is rendered, the arm bone is hidden (its children stay visible) and this class
- * draws the vanilla player arm mesh at that bone instead:
- * <ol>
- *     <li>{@code RenderUtils.prepMatrixForBone}: bone position, pivot, rotation, scale, un-pivot;</li>
- *     <li>{@code scale(0.67, 1.33, 0.67)} + {@code translate(±0.25, -0.43625, 0.1625)}, which turns
- *     the 4x12x4 vanilla arm into the 3x16x3 arm of {@code player_arms_import.bbmodel};</li>
- *     <li>the vanilla arm and sleeve are drawn on that bone with the part position set to the bone
- *     pivot, so the arm follows the Blockbench bone one to one.</li>
- * </ol>
- * The pose must already be inside the model frame. In AzureLib that frame is created by
- * {@code ItemRenderer} (hand anchor + item display transform); in PAL's first-person pass it is
- * created by {@link #applyCameraAnchor(PoseStack)} (default, so a rig authored around the model origin
- * is centred on the view axis) or {@link #applyHandTransform(PoseStack, boolean)} (the AzureLib hand
- * frame, selected with {@code fpDisplayAnchor: "hand"}), plus
+ * AzureLib does not animate a separate first-person arm model: the {@code leftArm} / {@code rightArm}
+ * bones are part of the animated model, and this class draws the vanilla arm mesh at that bone (the
+ * bone itself stays hidden). The pose must already be in the model frame, created by
+ * {@link #applyCameraAnchor(PoseStack)} or {@link #applyHandTransform(PoseStack, boolean)} plus
  * {@link #applyArmDisplayTransform(PoseStack, float[], float)}.
- *
- * <h2>PAL conventions</h2>
- * PAL's loader stores the raw Blockbench values in {@link PlayerAnimBone}, while AzureLib's
- * {@code AzBone} stores positions with X negated and rotations with X and Y negated
- * ({@code AzBakedAnimationsAdapter} and {@code AzBuiltinBakedModelFactory}). This port applies the
- * same conversion in {@link #translateMatrixToBone(PoseStack, PlayerAnimBone)} and
- * {@link #rotateMatrixAroundBone(PoseStack, PlayerAnimBone)}, so a value authored for an AzureLib
- * arm rig produces the same result here. The rotation order is Z, Y, X, the same as AzureLib's
- * {@code RenderUtils.rotateMatrixAroundBone}.
+ * <p>
+ * PAL's loader keeps the raw Blockbench values, so the X/Y negation AzureLib applies when baking is
+ * done here in {@link #translateMatrixToBone(PoseStack, PlayerAnimBone)} and
+ * {@link #rotateMatrixAroundBone(PoseStack, PlayerAnimBone)} (rotation order Z, Y, X).
  */
 public final class FpArmRenderUtil {
 
@@ -68,10 +48,7 @@ public final class FpArmRenderUtil {
     public static final String RIGHT_ARM_BONE = "rightArm";
 
     /**
-     * Rotation centre of the right arm as authored in {@code player_arms_import.bbmodel} (the
-     * {@code rightArm} bone origin). It is the value {@code AzBone#getPivot*} holds after
-     * {@code AzBuiltinBakedModelFactory} applies {@code -pivot.x}: the bbmodel origin is {@code x = 6}
-     * and the exported geo pivot is {@code x = -6}, so the stored pivot is {@code x = 6}.
+     * Rotation centre of the right arm in model units, as stored after AzureLib's X mirroring.
      */
     public static final float[] RIGHT_ARM_PIVOT = new float[]{6.0F, 6.0F, 6.0F};
 
@@ -81,8 +58,7 @@ public final class FpArmRenderUtil {
     public static final float[] LEFT_ARM_PIVOT = new float[]{-6.0F, 6.0F, 6.0F};
 
     /**
-     * Pivot of the {@code fp_r_item} bone: in {@code player_arms_import.bbmodel} the item bone sits on
-     * the hand, at the same place as {@code rightArm}.
+     * Pivot of the {@code fp_r_item} bone, which sits on the hand like {@code rightArm}.
      */
     public static final float[] RIGHT_ITEM_PIVOT = new float[]{6.0F, 6.0F, 6.0F};
 
@@ -97,9 +73,6 @@ public final class FpArmRenderUtil {
     public static final float[] NO_PIVOT = new float[]{0.0F, 0.0F, 0.0F};
 
     /**
-     * Checks if the given bone is an arm bone that should be rendered.
-     *
-     * @param bone The bone to check
      * @return true if this is a left or right arm bone
      */
     public static boolean isArmBone(PlayerAnimBone bone) {
@@ -109,43 +82,28 @@ public final class FpArmRenderUtil {
 
     /**
      * Renders the vanilla player arm for the given arm bone, hiding the bone itself but keeping
-     * children visible. 1:1 of {@code AzItemArmRenderUtil#renderArmForBone}.
-     * <p>
-     * The pose stack must already be in the model frame (see
-     * {@link #applyCameraAnchor(PoseStack)} or {@link #applyHandTransform(PoseStack, boolean)}, plus
-     * {@link #applyArmDisplayTransform(PoseStack, float[], float)}) and already contain the parent
-     * chain of the arm (for PAL's first-person rig, that is {@code fp_player_arms}).
-     *
-     * @param poseStack   the pose stack, already inside the model frame
-     * @param bone        the arm bone ({@code leftArm} or {@code rightArm})
-     * @param pivot       the bone rotation centre in model units
-     *                    ({@link #LEFT_ARM_PIVOT} / {@link #RIGHT_ARM_PIVOT})
-     * @param playerModel the vanilla player model that owns the arm meshes
-     * @param playerSkin  the skin texture of the local player
-     * @param packedLight packed light coordinates
-     * @param render      the render buffer the arm is submitted to
+     * children visible. The pose stack must already be in the model frame and contain the parent chain
+     * of the arm (for PAL's first-person rig, {@code fp_player_arms}).
      */
     public static void renderArmForBone(
             PoseStack poseStack,
             PlayerAnimBone bone,
             float[] pivot,
             //? if >=1.21.11 {
-            //PlayerModel playerModel,
+            PlayerModel playerModel,
             //?} else {
-            PlayerModel<?> playerModel,
+            //PlayerModel<?> playerModel,
             //?}
-            ResourceLocation playerSkin,
+            Identifier playerSkin,
             int packedLight,
             FpRenderBuffer render
     ) {
-        // Only first-person arm bones are rendered by this utility.
         if (!isArmBone(bone)) {
             return;
         }
 
         poseStack.pushPose();
 
-        // Same order as AzItemArmRenderUtil -> RenderUtils.prepMatrixForBone.
         applyArmTransform(poseStack, bone, pivot);
 
         if (LEFT_ARM_BONE.equals(bone.getName())) {
@@ -157,6 +115,12 @@ public final class FpArmRenderUtil {
         poseStack.popPose();
     }
 
+    // entityCutout instead of vanilla's entityTranslucent: the deferred collector path does not honour
+    // entityTranslucent, so the sleeve's transparent pixels came out as an opaque black copy of the arm.
+    private static RenderType sleeveRenderType(Identifier playerSkin) {
+        return RenderTypes.entityCutout(playerSkin);
+    }
+
     /**
      * Renders the left arm and sleeve. 1:1 of {@code AzItemArmRenderUtil#renderLeftArm}.
      */
@@ -164,19 +128,22 @@ public final class FpArmRenderUtil {
             PoseStack poseStack,
             float[] pivot,
             //? if >=1.21.11 {
-            //PlayerModel playerModel,
+            PlayerModel playerModel,
             //?} else {
-            PlayerModel<?> playerModel,
+            //PlayerModel<?> playerModel,
             //?}
-            ResourceLocation playerSkin,
+            Identifier playerSkin,
             int packedLight,
             FpRenderBuffer render
     ) {
         poseStack.scale(0.67F, 1.33F, 0.67F);
         poseStack.translate(-0.25, -0.43625, 0.1625);
 
-        // The player model is shared with the third-person renderer, which PAL also animates, so
-        // reset the part scale before drawing the arm. Rotation and position are set below.
+        // Reset before drawing: from 1.21.9 drawModelPart only submits the part and it is rasterised one
+        // frame later, so the pose has to stay until then. The shared model is restored by
+        // #resetPlayerModelArms when the arm mode is left.
+        playerModel.leftArm.resetPose();
+        playerModel.leftSleeve.resetPose();
         playerModel.leftArm.xScale = 1.0F;
         playerModel.leftArm.yScale = 1.0F;
         playerModel.leftArm.zScale = 1.0F;
@@ -184,32 +151,29 @@ public final class FpArmRenderUtil {
         playerModel.leftSleeve.yScale = 1.0F;
         playerModel.leftSleeve.zScale = 1.0F;
 
-        // Set up and render the left arm
         playerModel.leftArm.setPos(pivot[0], pivot[1], pivot[2]);
         playerModel.leftArm.setRotation(0, 0, 0);
         render.drawModelPart(
                 playerModel.leftArm,
                 poseStack,
-                RenderType.entitySolid(playerSkin),
+                RenderTypes.entitySolid(playerSkin),
                 packedLight,
                 OverlayTexture.NO_OVERLAY
         );
 
-        // Set up and render a left sleeve
+        // Left sleeve (see #sleeveRenderType for the render type choice).
         playerModel.leftSleeve.setPos(pivot[0], pivot[1], pivot[2]);
         playerModel.leftSleeve.setRotation(0, 0, 0);
         render.drawModelPart(
                 playerModel.leftSleeve,
                 poseStack,
-                RenderType.entityTranslucent(playerSkin),
+                sleeveRenderType(playerSkin),
                 packedLight,
                 OverlayTexture.NO_OVERLAY
         );
 
-        // The player model is shared with the third-person renderer, so leave it exactly as it was
-        // before this first-person pass. Without this the third-person arms stay on the FP rig pivot.
-        playerModel.leftArm.resetPose();
-        playerModel.leftSleeve.resetPose();
+        // Deliberately no reset here: the arm was only submitted above and is rasterised when the
+        // collector is flushed, so the pose has to survive until then (see the top of this method).
     }
 
     /**
@@ -219,19 +183,22 @@ public final class FpArmRenderUtil {
             PoseStack poseStack,
             float[] pivot,
             //? if >=1.21.11 {
-            //PlayerModel playerModel,
+            PlayerModel playerModel,
             //?} else {
-            PlayerModel<?> playerModel,
+            //PlayerModel<?> playerModel,
             //?}
-            ResourceLocation playerSkin,
+            Identifier playerSkin,
             int packedLight,
             FpRenderBuffer render
     ) {
         poseStack.scale(0.67F, 1.33F, 0.67F);
         poseStack.translate(0.25, -0.43625, 0.1625);
 
-        // The player model is shared with the third-person renderer, which PAL also animates, so
-        // reset the part scale before drawing the arm. Rotation and position are set below.
+        // Reset before drawing: from 1.21.9 drawModelPart only submits the part and it is rasterised one
+        // frame later, so the pose has to stay until then. The shared model is restored by
+        // #resetPlayerModelArms when the arm mode is left.
+        playerModel.rightArm.resetPose();
+        playerModel.rightSleeve.resetPose();
         playerModel.rightArm.xScale = 1.0F;
         playerModel.rightArm.yScale = 1.0F;
         playerModel.rightArm.zScale = 1.0F;
@@ -239,41 +206,62 @@ public final class FpArmRenderUtil {
         playerModel.rightSleeve.yScale = 1.0F;
         playerModel.rightSleeve.zScale = 1.0F;
 
-        // Set up and render the right arm
         playerModel.rightArm.setPos(pivot[0], pivot[1], pivot[2]);
         playerModel.rightArm.setRotation(0, 0, 0);
         render.drawModelPart(
                 playerModel.rightArm,
                 poseStack,
-                RenderType.entitySolid(playerSkin),
+                RenderTypes.entitySolid(playerSkin),
                 packedLight,
                 OverlayTexture.NO_OVERLAY
         );
 
-        // Set up and render a right sleeve
+        // Right sleeve (see #sleeveRenderType for the render type choice).
         playerModel.rightSleeve.setPos(pivot[0], pivot[1], pivot[2]);
         playerModel.rightSleeve.setRotation(0, 0, 0);
         render.drawModelPart(
                 playerModel.rightSleeve,
                 poseStack,
-                RenderType.entityTranslucent(playerSkin),
+                sleeveRenderType(playerSkin),
                 packedLight,
                 OverlayTexture.NO_OVERLAY
         );
 
-        // The player model is shared with the third-person renderer, so leave it exactly as it was
-        // before this first-person pass. Without this the third-person arms stay on the FP rig pivot.
+        // No reset here: the pose has to survive until the collector is flushed (see the top of this method).
+    }
+
+    /**
+     * Restores the vanilla arm and sleeve parts of the local player's shared model, so the
+     * third-person renderer never inherits the first-person rig pose.
+     */
+    public static void resetPlayerModelArms() {
+        Minecraft minecraft = Minecraft.getInstance();
+        LocalPlayer localPlayer = minecraft.player;
+        if (localPlayer == null) {
+            return;
+        }
+
+        // Only the local player's model is written to by the first-person pass.
+        var renderer = minecraft.getEntityRenderDispatcher().getRenderer(localPlayer);
+        if (!(renderer instanceof AvatarRenderer playerRenderer)) {
+            return;
+        }
+
+        //? if >=1.21.11 {
+        PlayerModel playerModel = (PlayerModel) playerRenderer.getModel();
+        //?} else {
+        //PlayerModel<?> playerModel = playerRenderer.getModel();
+        //?}
+
+        playerModel.leftArm.resetPose();
         playerModel.rightArm.resetPose();
+        playerModel.leftSleeve.resetPose();
         playerModel.rightSleeve.resetPose();
     }
 
     /**
-     * Applies the vanilla first-person item hand anchor,
-     * {@code ItemInHandRenderer#applyItemArmTransform} without equip progress. This is the origin
-     * AzureLib's item model lives in before the item display transform, and therefore the frame
-     * {@code leftArm} / {@code rightArm} are authored against in an AzureLib gun rig.
-     *
-     * @param isLeftHand true for the left-hand anchor ({@code -0.56} on X)
+     * Applies the vanilla first-person hand anchor (without equip progress), the frame AzureLib gun
+     * rigs are authored against.
      */
     public static void applyHandTransform(PoseStack poseStack, boolean isLeftHand) {
         float side = isLeftHand ? -1.0F : 1.0F;
@@ -282,23 +270,15 @@ public final class FpArmRenderUtil {
 
     /**
      * Applies the camera anchor: same distance and height as the vanilla hand anchor, but on the view
-     * axis ({@code x = 0}). A rig authored around the model origin (the {@code player_arms_import.bbmodel}
-     * convention, arms at {@code x = ±6}) then renders centred on screen like it does in Blockbench,
-     * instead of being pushed to the right hand.
+     * axis, so a rig authored around the model origin renders centred like in Blockbench.
      */
     public static void applyCameraAnchor(PoseStack poseStack) {
         poseStack.translate(0.0F, -0.52F, -0.72F);
     }
 
     /**
-     * Applies the first-person display transform of the item model that owns the arm bones: the same
-     * translation (in 1/16 block) and uniform scale a {@code firstperson_righthand} /
-     * {@code firstperson_lefthand} display entry applies before the model is drawn.
-     * <p>
-     * AzureLib gets this from the item's model JSON, so the Blockbench preview and the game agree.
-     * PAL's first-person pass has no item model, so the values are configuration
-     * ({@link FpRenderState#ARM_DISPLAY_TRANSLATION} and {@link FpRenderState#ARM_DISPLAY_SCALE}).
-     * Identity leaves the rig exactly at the hand anchor.
+     * Applies the display transform of the item model that owns the arm bones: the translation (in
+     * 1/16 block) and uniform scale of a {@code firstperson_*} entry.
      */
     public static void applyArmDisplayTransform(PoseStack poseStack, float[] translation, float scale) {
         poseStack.translate(translation[0] / 16.0F, translation[1] / 16.0F, translation[2] / 16.0F);
@@ -324,8 +304,7 @@ public final class FpArmRenderUtil {
 
     /**
      * Applies the {@code fp_camera} transform, which moves, rotates and scales the first-person pass
-     * around the view origin. Unlike the arm chain, the camera is a PAL-only bone authored directly in
-     * view space, so it keeps PAL's {@code (+X, -Y, +Z)} and non-negated rotation convention.
+     * around the view origin. The camera keeps PAL's {@code (+X, -Y, +Z)} convention.
      */
     public static void applyCameraTransform(PoseStack poseStack, PlayerAnimBone camera) {
         poseStack.translate(camera.getPosX() / 16.0F, -camera.getPosY() / 16.0F, camera.getPosZ() / 16.0F);
@@ -348,7 +327,7 @@ public final class FpArmRenderUtil {
 
     /**
      * Applies an arm bone's full transform in the model frame. This is the same transform used by
-     * {@link #renderArmForBone(PoseStack, PlayerAnimBone, float[], PlayerModel, ResourceLocation, int, FpRenderBuffer)},
+     * {@link #renderArmForBone(PoseStack, PlayerAnimBone, float[], PlayerModel, Identifier, int, FpRenderBuffer)},
      * exposed so a held item can be rendered in exactly the same arm frame.
      */
     public static void applyArmTransform(PoseStack poseStack, PlayerAnimBone arm, float[] pivot) {
@@ -356,40 +335,26 @@ public final class FpArmRenderUtil {
     }
 
     /**
-     * Applies the item bone offset ({@code fp_right_item} / {@code fp_left_item}) in the model frame,
-     * keeping the item on the model origin (the convention of a rig authored around the hand anchor,
-     * {@code fpDisplayAnchor: "hand"}). In AzureLib the item is part of the same model and is a sibling
-     * of the arm bones, so only the rig root and the item bone affect it; the arms do not drag the item.
-     * <p>
-     * A rig authored around the model origin (the {@code player_arms_import.bbmodel} convention) uses
-     * {@link #applyItemTransform(PoseStack, PlayerAnimBone, float[])} with the bone pivot instead, so
-     * the item lands on the animated hand.
+     * Applies the item bone offset in the model frame, keeping the item on the model origin (the
+     * {@code fpDisplayAnchor: "hand"} convention). A rig authored around the model origin uses
+     * {@link #applyItemTransform(PoseStack, PlayerAnimBone, float[])} instead.
      */
     public static void applyItemTransform(PoseStack poseStack, PlayerAnimBone item) {
         applyItemTransform(poseStack, item, NO_PIVOT);
     }
 
     /**
-     * Applies the item bone transform so the item model ends up on the bone itself.
-     * <p>
-     * Vanilla draws the item's {@code 1x1x1} model box around the origin of the frame it is handed
-     * (see {@code ItemRenderer#render}, which does {@code translate(-0.5, -0.5, -0.5)}), so the box has
-     * to be moved to the bone origin before the bone rotation is applied. Rotating it about the pivot
-     * without that translation (the {@link #applyBoneTransform} form) leaves the box on the model
-     * origin and offsets it by {@code -R * pivot} - up to {@code 0.65} blocks, and in a different
-     * direction per hand, because the item bones sit at {@code x = ±6}. That is the offset that made
-     * the held item land next to the animated hand instead of on it.
-     * <p>
-     * The arms do not need this: {@link #renderArmForBone} places the vanilla arm mesh on the bone
-     * pivot, so {@link #applyBoneTransform}'s un-pivot already lands it on the bone origin. A rig
-     * authored around the hand anchor ({@code fpDisplayAnchor: "hand"}) keeps the model-origin
-     * convention, which is why it passes {@link #NO_PIVOT} and stays unchanged.
+     * Applies the item bone transform so the item model ends up on the bone itself. Vanilla draws the
+     * item's {@code 1x1x1} box around the origin of the frame it is handed, so the box has to be moved
+     * to the bone origin before the bone rotation is applied; rotating it about the pivot without that
+     * translation would offset it by {@code -R * pivot}.
      *
-     * @param pivot the bone origin in model units ({@link #RIGHT_ITEM_PIVOT} /
-     *              {@link #LEFT_ITEM_PIVOT}), or {@link #NO_PIVOT} for a rig whose item sits on the
-     *              model origin
+     * @param pivot the bone origin in model units, or {@link #NO_PIVOT} for a rig whose item sits on
+     *              the model origin
      */
     public static void applyItemTransform(PoseStack poseStack, PlayerAnimBone item, float[] pivot) {
+        // The pivot is applied before the rotation on purpose: translating back afterwards would offset
+        // the item by -R * pivot, because the closing translate is rotated by the bone too.
         translateToPivotPoint(poseStack, pivot);
         translateMatrixToBone(poseStack, item);
         rotateMatrixAroundBone(poseStack, item);
@@ -418,9 +383,8 @@ public final class FpArmRenderUtil {
     }
 
     /**
-     * Same convention as AzureLib's {@code RenderUtils.translateMatrixToBone}: X is negated and Y is
-     * not. PAL's loader keeps the raw Blockbench value, so the X negation is applied here instead of
-     * in the loader.
+     * Same convention as AzureLib's {@code translateMatrixToBone}: X is negated and Y is not, because
+     * PAL's loader keeps the raw Blockbench value.
      */
     public static void translateMatrixToBone(PoseStack poseStack, PlayerAnimBone bone) {
         poseStack.translate(-bone.getPosX() / 16.0F, bone.getPosY() / 16.0F, bone.getPosZ() / 16.0F);
@@ -435,8 +399,7 @@ public final class FpArmRenderUtil {
     private static final Quaternionf Z_QUATERNION_CACHE = new Quaternionf();
 
     public static void rotateMatrixAroundBone(PoseStack poseStack, PlayerAnimBone bone) {
-        // AzureLib's AzBone stores rotations with X and Y negated (AzBakedAnimationsAdapter), while
-        // PAL's PlayerAnimBone keeps the raw value, so the same negation is applied here.
+        // AzureLib negates X and Y when baking, PAL keeps the raw value, so the same negation is applied here.
         float rotX = -bone.getRotX();
         float rotY = -bone.getRotY();
         float rotZ = bone.getRotZ();

@@ -17,8 +17,7 @@ public class FabricClientEntrypoint implements ClientModInitializer {
 	@Override
 	public void onInitializeClient() {
 		ModTemplate.onInitializeClient();
-		// The first-person assets live in this mod's own namespace (assets/modtemplate/fp_animations),
-		// so the addon registers the reload listener that fills FpAnimationResources.
+		// Registers the reload listener that fills FpAnimationResources from fp_animations/.
 		ResourceManagerHelper.get(PackType.CLIENT_RESOURCES).registerReloadListener(new IdentifiableFpAnimationResources());
 		ClientCommandRegistrationCallback.EVENT.register(FpPlayerAnimCommands::register);
 	}

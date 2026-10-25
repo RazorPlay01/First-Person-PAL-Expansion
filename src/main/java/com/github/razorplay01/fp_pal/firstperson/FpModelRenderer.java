@@ -5,12 +5,12 @@ import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.github.razorplay01.fp_pal.ModTemplate;
 import com.zigythebird.playeranimcore.bones.PlayerAnimBone;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.renderer.RenderType;
+import net.minecraft.client.renderer.rendertype.RenderType;
 //? if >=1.21.11 {
-//import net.minecraft.client.renderer.RenderTypes;
+import net.minecraft.client.renderer.rendertype.RenderTypes;
 //?}
 import net.minecraft.client.renderer.texture.OverlayTexture;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import org.jetbrains.annotations.Nullable;
 import org.joml.Matrix3f;
 import org.joml.Matrix4f;
@@ -19,31 +19,24 @@ import org.joml.Vector3f;
 import java.io.Reader;
 
 /**
- * Renders a Bedrock geo.json model in PAL's first-person arm pass, using the same bone transforms
- * the FP animation produces ({@link FpRenderState#getExtraBone(String)}).
- * <p>
- * This is the PAL equivalent of what an AzureLib {@code AzItemRenderer} does with the item model:
- * the root bone is already applied by {@link FpArmRenderUtil#applyRootTransform}, arm bones are
- * skipped because {@link FpArmRenderUtil} draws the vanilla player arms on them, and every other
- * bone ({@code mag}, {@code slide}, {@code flash}, ...) is rendered with its animated transform plus
- * the static rotation authored in the model.
+ * Renders a Bedrock geo.json model in PAL's first-person arm pass, using the same bone transforms the
+ * FP animation produces ({@link FpRenderState#getExtraBone(String)}). The root bone is already applied
+ * by {@link FpArmRenderUtil#applyRootTransform}, arm bones are skipped (PAL draws the vanilla arms on
+ * them) and every other bone is rendered with its animated transform plus the static geo rotation.
  * <p>
  * The model is resolved automatically when a first-person animation is played (see
- * {@link #loadForAnimation(ResourceLocation)}): the animation's own path is tried first, then the
- * base name of the {@code .animation.json} file it came from. A model is only loaded when both the
- * {@code .geo.json} and the matching {@code textures/fp/*.png} exist, so mods can ship
- * animation + model + texture with the same name without running {@code /fp_anim model}.
- * The command remains available as an explicit override/test aid.
+ * {@link #loadForAnimation(Identifier)}), and only when both the {@code .geo.json} and the matching
+ * texture exist. {@code /fp_anim model} remains as an explicit override.
  */
 public final class FpModelRenderer {
 
     private static @Nullable FpGeoModel model;
-    private static @Nullable ResourceLocation modelId;
-    private static @Nullable ResourceLocation texture;
+    private static @Nullable Identifier modelId;
+    private static @Nullable Identifier texture;
     private static @Nullable String lastError;
 
     /**
-     * Whether {@link #loadForAnimation(ResourceLocation)} may select a model automatically.
+     * Whether {@link #loadForAnimation(Identifier)} may select a model automatically.
      * Enabled by default; {@code /fp_anim model off} turns it off until a model is loaded manually.
      */
     private static boolean autoResolve = true;
@@ -61,15 +54,15 @@ public final class FpModelRenderer {
      * @param id model id, for example {@code player_animation_library:peacemaker}
      * @return true when the model was parsed
      */
-    public static boolean load(ResourceLocation id) {
+    public static boolean load(Identifier id) {
         return load(id, defaultTexture(id));
     }
 
     /**
      * Loads a model with an explicit texture.
      */
-    public static synchronized boolean load(ResourceLocation id, ResourceLocation textureLocation) {
-        ResourceLocation geoId = geoLocation(id);
+    public static synchronized boolean load(Identifier id, Identifier textureLocation) {
+        Identifier geoId = geoLocation(id);
         try {
             var resource = Minecraft.getInstance().getResourceManager().getResource(geoId);
             if (resource.isEmpty()) {
@@ -103,23 +96,13 @@ public final class FpModelRenderer {
     }
 
     /**
-     * Resolves and loads the item model that belongs to a first-person animation.
-     * <p>
-     * Resolution order:
-     * <ol>
-     *     <li>the animation id itself: {@code fp_models/<animation path>.geo.json} +
-     *     {@code textures/fp/<animation path>.png};</li>
-     *     <li>the {@code .animation.json} file it was declared in: {@code firing} inside
-     *     {@code peacemaker.animation.json} falls back to {@code fp_models/peacemaker.geo.json} +
-     *     {@code textures/fp/peacemaker.png}.</li>
-     * </ol>
-     * When neither pair exists the preview is cleared, so a previous animation's model is never
-     * shown over a different animation.
+     * Resolves and loads the item model that belongs to a first-person animation: the animation id
+     * itself first, then the {@code .animation.json} file it was declared in. When neither has a model
+     * the preview is cleared, so a previous animation's model is never shown.
      *
-     * @param animationId the FP animation that was just selected
      * @return true when a model was loaded
      */
-    public static synchronized boolean loadForAnimation(ResourceLocation animationId) {
+    public static synchronized boolean loadForAnimation(Identifier animationId) {
         if (!autoResolve) return false;
 
         if (tryLoad(animationId)) {
@@ -127,7 +110,7 @@ public final class FpModelRenderer {
             return true;
         }
 
-        ResourceLocation sourceModel = FpAnimationResources.getModelId(animationId);
+        Identifier sourceModel = FpAnimationResources.getModelId(animationId);
         if (sourceModel != null && !sourceModel.equals(animationId) && tryLoad(sourceModel)) {
             ModTemplate.LOGGER.info("Using FP model {} for animation {}", modelId, animationId);
             return true;
@@ -141,7 +124,7 @@ public final class FpModelRenderer {
      * Loads a model only when both the geo file and its default texture are present. This keeps the
      * automatic path silent for animations that do not have an item model.
      */
-    private static boolean tryLoad(ResourceLocation id) {
+    private static boolean tryLoad(Identifier id) {
         var resources = Minecraft.getInstance().getResourceManager();
         if (resources.getResource(geoLocation(id)).isEmpty()) return false;
         if (resources.getResource(defaultTexture(id)).isEmpty()) return false;
@@ -150,7 +133,7 @@ public final class FpModelRenderer {
 
     /**
      * Enables or disables automatic model selection for future FP animations. Loading a model
-     * explicitly with {@link #load(ResourceLocation)} re-enables it.
+     * explicitly with {@link #load(Identifier)} re-enables it.
      */
     public static synchronized void setAutoResolve(boolean value) {
         autoResolve = value;
@@ -160,11 +143,11 @@ public final class FpModelRenderer {
         return autoResolve;
     }
 
-    public static @Nullable ResourceLocation modelId() {
+    public static @Nullable Identifier modelId() {
         return modelId;
     }
 
-    public static @Nullable ResourceLocation texture() {
+    public static @Nullable Identifier texture() {
         return texture;
     }
 
@@ -179,24 +162,24 @@ public final class FpModelRenderer {
     /**
      * @return the resource id a model id maps to ({@code fp_models/<path>.geo.json})
      */
-    public static ResourceLocation geoLocation(ResourceLocation id) {
+    public static Identifier geoLocation(Identifier id) {
         String path = id.getPath();
         if (path.endsWith(".geo.json")) {
             path = path.substring(0, path.length() - ".geo.json".length());
         } else if (path.endsWith(".json")) {
             path = path.substring(0, path.length() - ".json".length());
         }
-        return ResourceLocation.fromNamespaceAndPath(id.getNamespace(), "fp_models/" + path + ".geo.json");
+        return Identifier.fromNamespaceAndPath(id.getNamespace(), "fp_models/" + path + ".geo.json");
     }
 
-    private static ResourceLocation defaultTexture(ResourceLocation id) {
+    private static Identifier defaultTexture(Identifier id) {
         String path = id.getPath();
         if (path.endsWith(".geo.json")) {
             path = path.substring(0, path.length() - ".geo.json".length());
         } else if (path.endsWith(".json")) {
             path = path.substring(0, path.length() - ".json".length());
         }
-        return ResourceLocation.fromNamespaceAndPath(id.getNamespace(), "textures/fp/" + path + ".png");
+        return Identifier.fromNamespaceAndPath(id.getNamespace(), "textures/fp/" + path + ".png");
     }
 
     /**
@@ -205,21 +188,16 @@ public final class FpModelRenderer {
      */
     public static void render(PoseStack poseStack, FpRenderBuffer render, int packedLight) {
         FpGeoModel currentModel = model;
-        ResourceLocation currentTexture = texture;
+        Identifier currentTexture = texture;
         if (currentModel == null || currentTexture == null) return;
 
         //? if >=26.1.2 {
-        /*// 26.1.2 renamed entityCutoutNoCull to entityCutout (the old entityCutout became
-        // entityCutoutCull), so the plain variant is the "no cull" one from here on.
-        RenderType renderType = RenderType.entityCutout(currentTexture);
+        /*// 26.1.2 renamed entityCutoutNoCull to entityCutout, so the plain variant is the "no cull" one.
+        RenderType renderType = RenderTypes.entityCutout(currentTexture);
         *///?} else {
-        RenderType renderType = RenderType.entityCutoutNoCull(currentTexture);
+        RenderType renderType = RenderTypes.entityCutoutNoCull(currentTexture);
         //?}
-        // The whole model is submitted as one geometry batch. On the legacy pipeline this writes into
-        // the render type's vertex consumer and flushes it (the first-person BufferSource only keeps
-        // the most recently requested render type pending, so without the flush the model would never
-        // be drawn); on the collector pipeline it writes inside the submit callback. FpRenderBuffer
-        // hides that difference.
+        // The whole model is submitted as one geometry batch; FpRenderBuffer hides the pipeline difference.
         render.drawGeometry(poseStack, renderType, (pose, consumer) -> {
             for (FpGeoModel.Bone root : currentModel.rootBones()) {
                 renderBone(pose, consumer, currentModel, root, packedLight, true);
@@ -233,9 +211,7 @@ public final class FpModelRenderer {
 
         boolean visible = bone.visible() && !isArmBone(bone.name());
 
-        // The root transform has already been applied by FpArmRenderUtil.applyRootTransform; applying
-        // it again would move the gun twice. Child bones add their animated transform and their
-        // static geo rotation on top of the parent.
+        // The root transform is already applied by applyRootTransform; children add their transform on top.
         if (!root) {
             PlayerAnimBone transform = bone.animatedTransform();
             FpArmRenderUtil.applyBoneTransform(poseStack, transform, new float[]{
@@ -248,8 +224,7 @@ public final class FpModelRenderer {
                     && Math.abs(transform.getScaleZ()) > 1.0E-5F;
         }
 
-        // AzureLib hides the arm bone and keeps its children visible; PAL draws the vanilla arm mesh
-        // there instead, so the modeled arm cubes must not be rendered over it.
+        // The modeled arm cubes are not rendered: PAL draws the vanilla arm mesh there instead.
         if (visible) {
             for (FpGeoModel.Cube cube : bone.cubes()) {
                 renderCube(poseStack, consumer, geoModel, cube, packedLight);
@@ -269,7 +244,6 @@ public final class FpModelRenderer {
 
     private static void renderCube(PoseStack poseStack, VertexConsumer consumer, FpGeoModel geoModel,
                                    FpGeoModel.Cube cube, int packedLight) {
-        // A zero scale is used by flash bones to hide themselves.
         if (Math.abs(cube.sizeX()) < 1.0E-5F || Math.abs(cube.sizeY()) < 1.0E-5F
                 || Math.abs(cube.sizeZ()) < 1.0E-5F) {
             return;
@@ -330,7 +304,6 @@ public final class FpModelRenderer {
                 0.0F, 1.0F, 0.0F,
                 x0, y1, z1, x1, y1, z1, x1, y1, z0, x0, y1, z0);
     }
-
 
     /**
      * Resolves the UV rectangle of a face: per-face UVs first, then the classic box UV layout, and

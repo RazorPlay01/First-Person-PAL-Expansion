@@ -3,7 +3,7 @@ package com.github.razorplay01.fp_pal;
 import com.github.razorplay01.fp_pal.firstperson.FpAnimationSystem;
 import com.github.razorplay01.fp_pal.platform.Platform;
 
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -50,19 +50,19 @@ public class ModTemplate {
 		 //?}
 	}
 
-	public static ResourceLocation id(String path) {
+	public static Identifier id(String path) {
 		//? > 1.19.2 {
-		return ResourceLocation.fromNamespaceAndPath(MOD_ID, path);
+		return Identifier.fromNamespaceAndPath(MOD_ID, path);
 		 //?} <= 1.19.2 {
-		//return new ResourceLocation(MOD_ID, path);
+		//return new Identifier(MOD_ID, path);
 		//?}
 	}
 
-	public static ResourceLocation id(String namespace, String path) {
+	public static Identifier id(String namespace, String path) {
 		//? > 1.19.2 {
-		return ResourceLocation.fromNamespaceAndPath(namespace, path);
+		return Identifier.fromNamespaceAndPath(namespace, path);
 		 //?} <= 1.19.2 {
-		//return new ResourceLocation(namespace, path);
+		//return new Identifier(namespace, path);
 		//?}
 	}
 }

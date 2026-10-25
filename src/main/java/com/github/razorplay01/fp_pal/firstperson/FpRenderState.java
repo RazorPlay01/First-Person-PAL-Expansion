@@ -2,8 +2,8 @@ package com.github.razorplay01.fp_pal.firstperson;
 
 import com.github.razorplay01.fp_pal.accessors.IFpAnimatedPlayer;
 import com.mojang.blaze3d.vertex.PoseStack;
-import com.zigythebird.playeranim.accessors.IAnimatedPlayer;
-import com.zigythebird.playeranim.animation.PlayerAnimManager;
+import com.zigythebird.playeranim.accessors.IAnimatedAvatar;
+import com.zigythebird.playeranim.animation.AvatarAnimManager;
 import com.zigythebird.playeranimcore.api.firstPerson.FirstPersonConfiguration;
 import com.zigythebird.playeranimcore.api.firstPerson.FirstPersonMode;
 import com.zigythebird.playeranimcore.bones.PlayerAnimBone;
@@ -28,29 +28,21 @@ public class FpRenderState {
         /* This utility class should not be instantiated */
     }
 
-
     /**
      * Whether FP rendering is active (a FP animation is currently playing).
      */
     public static boolean isFpActive = false;
 
     /**
-     * Whether the held item of the local player is being drawn right now with the {@code fp_r_item} /
-     * {@code fp_l_item} bone pose applied.
-     * <p>
-     * Vanilla draws a held item with the display transform of its {@code ItemDisplayContext}
-     * ({@code firstperson_righthand}: {@code rotationXYZ(0, -90, 25)}, {@code scale(0.68)},
-     * {@code translate(i * 1.13, 3.2, 1.13)}). That transform is not part of the animation, so while
-     * this flag is set {@code ItemTransformMixin} skips it and the item lands exactly where the
-     * {@code fp_*_item} bone puts it, which is what Blockbench shows. The flag is only raised for the
-     * frames the item pass actually pushes a bone pose for, so an item in a hand the clip does not
-     * animate keeps vanilla's transform.
+     * Whether the local player's held item is currently drawn with the {@code fp_r_item} /
+     * {@code fp_l_item} bone pose applied. While set, {@code ItemTransformMixin} skips vanilla's item
+     * display transform so the item lands where the animation puts it.
      */
     public static boolean isFpItemPass = false;
 
     /**
-     * Snapshot of the pose the vanilla first-person item pass starts from, taken at the head of
-     * {@code ItemInHandRenderer#renderHandsWithItems} (see {@link #captureItemFrame(PoseStack)}).
+     * Snapshot of the pose the vanilla first-person item pass starts from
+     * (see {@link #captureItemFrame(PoseStack)}).
      */
     private static final Matrix4f ITEM_FRAME_POSE = new Matrix4f();
 
@@ -65,14 +57,9 @@ public class FpRenderState {
     private static boolean itemFrameCaptured = false;
 
     /**
-     * Remembers the pose the vanilla first-person item pass starts from: the view frame the hands are
-     * drawn in, before vanilla adds the hand sway and, per hand, the equip progress, the swing, the
-     * hand anchor and the use-item pose.
-     * <p>
-     * Vanilla builds all of those on top of the caller's pose and gives the animation no say, so
-     * {@code FpArmRendererMixin} rewinds to this frame before applying the animated bone poses. The
-     * arms and the held item then sit in exactly the frame the animation describes, which is what the
-     * Blockbench preview shows.
+     * Remembers the frame the vanilla first-person item pass starts from, before vanilla adds the
+     * hand sway and the per-hand item transforms. {@code FpArmRendererMixin} rewinds to it before
+     * applying the animated bone poses.
      */
     public static void captureItemFrame(PoseStack poseStack) {
         PoseStack.Pose pose = poseStack.last();
@@ -83,9 +70,7 @@ public class FpRenderState {
 
     /**
      * Rewinds the top of the pose stack to the frame captured by {@link #captureItemFrame(PoseStack)},
-     * dropping every transform vanilla applied to the first-person pass since then (the hand sway, the
-     * equip progress, the swing, the hand anchor and the use-item poses). Does nothing before the first
-     * capture.
+     * dropping every transform vanilla applied since then. Does nothing before the first capture.
      */
     public static void restoreItemFrame(PoseStack poseStack) {
         if (!itemFrameCaptured) return;
@@ -95,9 +80,8 @@ public class FpRenderState {
     }
 
     /**
-     * @return true if the given entity is currently playing a first-person animation, which is what
-     * makes the render mixins replace the vanilla arm. The state lives in the addon's own controller
-     * ({@link FpAnimationController#isPlayerArmMode()}); PAL only knows the vanilla modes.
+     * @return true if the given entity is playing a first-person animation, which is what makes the
+     * render mixins replace the vanilla arm.
      */
     public static boolean isPlayerArmMode(@Nullable Entity entity) {
         if (entity instanceof IFpAnimatedPlayer fpPlayer) {
@@ -108,17 +92,9 @@ public class FpRenderState {
     }
 
     /**
-     * The {@link FirstPersonConfiguration} that decides what the first-person pass draws (the arms and
-     * the held items of each hand).
-     * <p>
-     * It has to come from this addon's controller, <b>not</b> from PAL's manager:
-     * {@code AnimationStack#getFirstPersonConfiguration} only resolves the configuration of the layer
-     * that reports a non-{@code NONE} first-person mode, and this controller deliberately reports
-     * {@link FirstPersonMode#NONE} so that PAL's own first-person machinery stays idle. Asking PAL's
-     * manager therefore always returned {@link FirstPersonConfiguration}'s defaults, whose
-     * {@code showRightArm} / {@code showLeftArm} are {@code false} while
-     * {@code showRightItem} / {@code showLeftItem} are {@code true} — which is exactly what kept the
-     * animated arms hidden while the items and the extra bones kept rendering.
+     * @return the {@link FirstPersonConfiguration} that decides what the first-person pass draws.
+     * It comes from this addon's controller rather than PAL's manager, because this controller reports
+     * {@link FirstPersonMode#NONE} and PAL would otherwise return the wrong defaults.
      */
     public static FirstPersonConfiguration firstPersonConfiguration(@Nullable Entity entity) {
         if (entity instanceof IFpAnimatedPlayer fpPlayer) {
@@ -129,10 +105,7 @@ public class FpRenderState {
     }
 
     /**
-     * Rotates the pose by a quaternion.
-     * <p>
-     * 26.3 renamed {@code PoseStack#mulPose(Quaternionfc)} to {@code rotate} (mulPose now only takes
-     * matrices), so the difference is hidden here instead of at every call site.
+     * Rotates the pose by a quaternion, hiding the 26.3 {@code mulPose} -> {@code rotate} rename.
      */
     public static void rotatePose(PoseStack poseStack, Quaternionf rotation) {
         //? if >=26.3 {
@@ -143,12 +116,10 @@ public class FpRenderState {
     }
 
     /**
-     * Reads a bone transform out of PAL's animation stack.
-     * <p>
-     * PAL 1.2 (26.x) changed {@code get3DTransform} to fill the bone passed in instead of returning a
-     * new one, so this wrapper keeps the call sites identical across versions.
+     * Reads a bone transform out of PAL's animation stack, keeping the call sites identical across the
+     * PAL 1.2 signature change.
      */
-    public static PlayerAnimBone get3DTransform(PlayerAnimManager manager, String boneName) {
+    public static PlayerAnimBone get3DTransform(AvatarAnimManager manager, String boneName) {
         PlayerAnimBone bone = new PlayerAnimBone(boneName);
         //? if >=26.1.2 {
         //manager.get3DTransform(bone);
@@ -165,22 +136,18 @@ public class FpRenderState {
     public static final PlayerAnimBone fpPlayerArms = new PlayerAnimBone("fp_player_arms");
 
     /**
-     * Rotation centre of the animation's model root in model units. Most rigs (including
-     * {@code player_arms_import.bbmodel}) use the origin, but an AzureLib item model can put its root
-     * pivot anywhere; {@link FpAnimationSystem} sets this when it resolves the root bone. Ignoring it
-     * makes root rotation animations ({@code firing}, {@code reload}) orbit the wrong point.
+     * Rotation centre of the animation's model root in model units. {@link FpAnimationSystem} sets it
+     * when resolving the root bone; most rigs use the origin.
      */
     public static float[] fpRootPivot = FpArmRenderUtil.NO_PIVOT;
 
     /**
-     * The FP right arm bone transform. The name is the same one AzureLib and
-     * {@code player_arms_import.bbmodel} use, so the same Blockbench animation can drive it.
+     * The FP right arm bone transform, named like AzureLib's {@code rightArm}.
      */
     public static final PlayerAnimBone fpRightArm = new PlayerAnimBone(FpArmRenderUtil.RIGHT_ARM_BONE);
 
     /**
-     * The FP left arm bone transform. The name is the same one AzureLib and
-     * {@code player_arms_import.bbmodel} use.
+     * The FP left arm bone transform, named like AzureLib's {@code leftArm}.
      */
     public static final PlayerAnimBone fpLeftArm = new PlayerAnimBone(FpArmRenderUtil.LEFT_ARM_BONE);
 
@@ -200,30 +167,27 @@ public class FpRenderState {
     public static final PlayerAnimBone fpCamera = new PlayerAnimBone("fp_camera");
 
     /**
-     * Previous tick's camera transform, used to interpolate the camera between ticks. Camera setup
-     * runs at frame rate while the animation state is updated at tick rate; without this the view
-     * would visibly step at 20 Hz.
+     * Previous tick's camera transform, used to interpolate the camera between ticks (the camera runs
+     * at frame rate, the animation state at tick rate).
      */
     private static final PlayerAnimBone fpCameraPrevious = new PlayerAnimBone("fp_camera");
 
     /**
-     * Scratch bone returned by {@link #getCameraForRender(float)}. Rendering happens on one thread,
-     * so reusing it avoids allocating a bone every frame.
+     * Scratch bone returned by {@link #getCameraForRender(float)}, reused to avoid allocating one per
+     * frame.
      */
     private static final PlayerAnimBone fpCameraRender = new PlayerAnimBone("fp_camera");
 
     /**
-     * Whether the current animation actually contains an item bone ({@code fp_r_item} /
-     * {@code fp_right_item}, or {@code fp_l_item} / {@code fp_left_item}). A zero transform is still
-     * a valid animated item bone, so presence cannot be inferred from {@link #isIdentity(PlayerAnimBone)}.
+     * Whether the current animation actually contains an item bone. A zero transform is still a valid
+     * animated bone, so presence cannot be inferred from {@link #isIdentity(PlayerAnimBone)}.
      */
     private static boolean rightItemBoneActive = false;
     private static boolean leftItemBoneActive = false;
 
     /**
-     * Whether the current animation contains the arm bone for a hand. This is checked against the
-     * animation's own bone list, not against the resulting transform, so a clip that only animates
-     * one hand can hide the other instead of falling back to its idle pose.
+     * Whether the current animation contains the arm bone for a hand, checked against the animation's
+     * own bone list so a clip that only animates one hand can hide the other.
      */
     private static boolean rightArmBoneActive = false;
     private static boolean leftArmBoneActive = false;
@@ -234,9 +198,8 @@ public class FpRenderState {
     private static final PlayerAnimBone[] BONES = {fpPlayerArms, fpRightArm, fpLeftArm, fpRightItem, fpLeftItem, fpCamera};
 
     /**
-     * Bone names handled directly by the renderer. Everything else an animation animates is kept in
-     * {@link #EXTRA_BONES} so mods can render their own details (weapon magazines, slides, flashes...)
-     * with the exact transform the animation gives them.
+     * Bone names handled directly by the renderer. Everything else is kept in {@link #EXTRA_BONES} so
+     * mods can render their own details with the animation's exact transform.
      */
     private static final Set<String> CORE_BONE_NAMES = Set.of(
             "fp_player_arms",
@@ -258,7 +221,7 @@ public class FpRenderState {
     /**
      * Updates the extra-bone cache with every bone the FP animation drives.
      */
-    public static void updateExtraBones(PlayerAnimManager manager, Set<String> activeBoneNames) {
+    public static void updateExtraBones(AvatarAnimManager manager, Set<String> activeBoneNames) {
         EXTRA_BONES.keySet().retainAll(activeBoneNames);
         for (String name : activeBoneNames) {
             if (CORE_BONE_NAMES.contains(name)) continue;
@@ -283,17 +246,9 @@ public class FpRenderState {
     }
 
     /**
-     * First-person display translation of the arm model, in 1/16 block, exactly like the
-     * {@code translation} of a {@code firstperson_righthand} / {@code firstperson_lefthand} entry in an
-     * item model JSON. Together with {@link #ARM_DISPLAY_SCALE} it is the equivalent of the item
-     * display transform AzureLib has when it renders the arm bones.
-     * <p>
-     * An FP animation can override it with the extra data keys
-     * {@code fpDisplayTranslation} (three numbers), {@code fpDisplayScale} (one number) and
-     * {@code fpDisplayAnchor} ({@code "camera"} or {@code "hand"}) inside its
-     * {@code player_animation_library} object. The peacemaker example animation ships with
-     * {@code [-2.5, 0.5, 1.5]} / {@code 1.5} / {@code "hand"}. Without extra data the rig sits on the
-     * camera anchor, so an arm rig authored around the model origin stays centred.
+     * First-person display translation of the arm model, in 1/16 block, like the {@code translation}
+     * of a {@code firstperson_*} item model entry. An FP animation can override it through the extra
+     * data keys {@code fpDisplayTranslation}, {@code fpDisplayScale} and {@code fpDisplayAnchor}.
      */
     public static final float[] ARM_DISPLAY_TRANSLATION = new float[]{0.0F, 0.0F, 0.0F};
 
@@ -303,8 +258,7 @@ public class FpRenderState {
     public static float ARM_DISPLAY_SCALE = 1.0F;
 
     /**
-     * Base transform configured by the mod, restored for animations that do not carry their own
-     * {@code fpDisplayTranslation} / {@code fpDisplayScale} extra data.
+     * Base transform configured by the mod, used for animations without their own display data.
      */
     private static final float[] BASE_ARM_DISPLAY_TRANSLATION = new float[]{0.0F, 0.0F, 0.0F};
     private static float baseArmDisplayScale = 1.0F;
@@ -335,15 +289,9 @@ public class FpRenderState {
     private static boolean handAnchored = false;
 
     /**
-     * Extra animation data key that selects the frame the arm rig is rendered in:
-     * <ul>
-     *     <li>{@code "camera"} (default) - the rig origin is on the view axis, so a rig authored
-     *     around {@code player_arms_import.bbmodel}'s origin (arms at {@code x = ±6}) shows both hands
-     *     centred on screen, exactly like the Blockbench preview;</li>
-     *     <li>{@code "hand"} - the rig origin is the vanilla first-person hand anchor
-     *     ({@code ±0.56, -0.52, -0.72}), which is the frame AzureLib item rigs (guns) are authored
-     *     against.</li>
-     * </ul>
+     * Extra animation data key that selects the frame the arm rig is rendered in: {@code "camera"}
+     * (default, origin on the view axis) or {@code "hand"} (the vanilla hand anchor used by AzureLib
+     * item rigs).
      */
     public static final String FP_DISPLAY_ANCHOR_KEY = "fpDisplayAnchor";
 
@@ -356,12 +304,8 @@ public class FpRenderState {
     }
 
     /**
-     * Applies the optional first-person display transform carried by the current animation, falling
-     * back to the transform configured through {@link #setArmDisplayTransform}.
-     *
-     * @param translation the {@code fpDisplayTranslation} list, or {@code null}
-     * @param scale       the {@code fpDisplayScale} value, or {@code null}
-     * @param anchor      the {@code fpDisplayAnchor} value, or {@code null} for the camera frame
+     * Applies the display transform carried by the current animation, falling back to the transform
+     * configured through {@link #setArmDisplayTransform}.
      */
     public static void applyAnimationDisplayTransform(@Nullable List<?> translation, @Nullable Float scale, @Nullable Object anchor) {
         handAnchored = anchor instanceof String value && "hand".equalsIgnoreCase(value);
@@ -389,8 +333,7 @@ public class FpRenderState {
     }
 
     /**
-     * @return true when the bone has no position, rotation or scale, which is how a bone that the
-     * current animation does not animate is returned.
+     * @return true when the bone has no position, rotation or scale, i.e. it is not animated.
      */
     public static boolean isIdentity(PlayerAnimBone bone) {
         return Math.abs(bone.getPosX()) < 1.0E-6F
@@ -429,16 +372,16 @@ public class FpRenderState {
     }
 
     /**
-     * @return true when the current animation contains a right-hand item bone, either the short
-     * {@code fp_r_item} alias or the legacy {@code fp_right_item} name.
+     * @return true when the current animation contains a right-hand item bone ({@code fp_r_item} or
+     * the legacy {@code fp_right_item}).
      */
     public static boolean hasRightItemBone() {
         return rightItemBoneActive;
     }
 
     /**
-     * @return true when the current animation contains a left-hand item bone, either the short
-     * {@code fp_l_item} alias or the legacy {@code fp_left_item} name.
+     * @return true when the current animation contains a left-hand item bone ({@code fp_l_item} or
+     * the legacy {@code fp_left_item}).
      */
     public static boolean hasLeftItemBone() {
         return leftItemBoneActive;
@@ -462,16 +405,16 @@ public class FpRenderState {
     }
 
     /**
-     * @return true when the current animation contains the right arm bone
-     * ({@code rightArm} / normalized {@code right_arm}, or the legacy {@code fp_right_arm})
+     * @return true when the current animation contains the right arm bone ({@code rightArm} /
+     * {@code right_arm}, or the legacy {@code fp_right_arm}).
      */
     public static boolean hasRightArmBone() {
         return rightArmBoneActive;
     }
 
     /**
-     * @return true when the current animation contains the left arm bone
-     * ({@code leftArm} / normalized {@code left_arm}, or the legacy {@code fp_left_arm})
+     * @return true when the current animation contains the left arm bone ({@code leftArm} /
+     * {@code left_arm}, or the legacy {@code fp_left_arm}).
      */
     public static boolean hasLeftArmBone() {
         return leftArmBoneActive;
@@ -543,7 +486,7 @@ public class FpRenderState {
     }
 
     /**
-     * Reset all transforms to identity (position and rotation to zero, scale to one).
+     * Resets all transforms to identity and leaves first-person arm mode.
      */
     public static void reset() {
         isFpActive = false;
@@ -559,8 +502,12 @@ public class FpRenderState {
         fpCameraRender.setToInitialPose();
         EXTRA_BONES.clear();
         itemFrameCaptured = false;
-        // Go back to the mod-level base transform instead of keeping the last animation's
-        // firstperson_* values.
+        // Restore the mod-level base display transform instead of keeping the last animation's values.
         applyAnimationDisplayTransform(null, null, null);
+
+        // The vanilla arm parts of the shared player model still carry the pose of the last rendered
+        // first-person frame (the collector reads them one frame after submission). Put them back now
+        // that the arm mode is off, so the third-person renderer keeps the real arm pose.
+        FpArmRenderUtil.resetPlayerModelArms();
     }
 }
