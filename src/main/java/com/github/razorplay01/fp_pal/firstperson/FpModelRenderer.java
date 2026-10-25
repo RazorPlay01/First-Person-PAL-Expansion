@@ -192,10 +192,10 @@ public final class FpModelRenderer {
         if (currentModel == null || currentTexture == null) return;
 
         //? if >=26.1.2 {
-        /*// 26.1.2 renamed entityCutoutNoCull to entityCutout, so the plain variant is the "no cull" one.
+        // 26.1.2 renamed entityCutoutNoCull to entityCutout, so the plain variant is the "no cull" one.
         RenderType renderType = RenderTypes.entityCutout(currentTexture);
-        *///?} else {
-        RenderType renderType = RenderTypes.entityCutoutNoCull(currentTexture);
+        //?} else {
+        //RenderType renderType = RenderTypes.entityCutoutNoCull(currentTexture);
         //?}
         // The whole model is submitted as one geometry batch; FpRenderBuffer hides the pipeline difference.
         render.drawGeometry(poseStack, renderType, (pose, consumer) -> {
@@ -219,9 +219,9 @@ public final class FpModelRenderer {
             });
             // A zero scale is how flash bones hide themselves; collapsed quads are not worth drawing.
             visible = visible
-                    && Math.abs(transform.getScaleX()) > 1.0E-5F
-                    && Math.abs(transform.getScaleY()) > 1.0E-5F
-                    && Math.abs(transform.getScaleZ()) > 1.0E-5F;
+                    && Math.abs(transform.scale.x) > 1.0E-5F
+                    && Math.abs(transform.scale.y) > 1.0E-5F
+                    && Math.abs(transform.scale.z) > 1.0E-5F;
         }
 
         // The modeled arm cubes are not rendered: PAL draws the vanilla arm mesh there instead.

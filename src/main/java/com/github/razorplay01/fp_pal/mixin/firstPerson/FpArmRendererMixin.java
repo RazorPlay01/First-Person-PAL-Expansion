@@ -2,7 +2,6 @@ package com.github.razorplay01.fp_pal.mixin.firstPerson;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.github.razorplay01.fp_pal.firstperson.FpArmRenderUtil;
-import com.github.razorplay01.fp_pal.firstperson.FpDebug;
 import com.github.razorplay01.fp_pal.firstperson.FpModelRenderer;
 import com.github.razorplay01.fp_pal.firstperson.FpRenderBuffer;
 import com.github.razorplay01.fp_pal.firstperson.FpRenderState;
@@ -11,12 +10,12 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.model.player.PlayerModel;
 import net.minecraft.client.player.LocalPlayer;
 //? if >=26.3 {
-/*import net.minecraft.client.renderer.FirstPersonHandsAndItemsRenderer;
+import net.minecraft.client.renderer.FirstPersonHandsAndItemsRenderer;
 import net.minecraft.client.renderer.entity.state.AvatarRenderState;
 import net.minecraft.client.renderer.state.level.FirstPersonHandsAndItemsRenderState;
 import net.minecraft.client.renderer.state.level.PlayerRenderState;
-*///?} else {
-import net.minecraft.client.renderer.ItemInHandRenderer;
+//?} else {
+//import net.minecraft.client.renderer.ItemInHandRenderer;
 //?}
 //? if <1.21.11 {
 //import net.minecraft.client.renderer.MultiBufferSource;
@@ -31,7 +30,7 @@ import net.minecraft.world.entity.HumanoidArm;
 import net.minecraft.world.entity.player.PlayerModelPart;
 import net.minecraft.world.entity.LivingEntity;
 //? if >=26.3 {
-//import net.minecraft.world.InteractionHand;
+import net.minecraft.world.InteractionHand;
 //?}
 import net.minecraft.world.item.ItemDisplayContext;
 import net.minecraft.world.item.ItemStack;
@@ -57,7 +56,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
  * this mixin only applies the {@code fp_r_item} / {@code fp_l_item} bone pose around that call after
  * rewinding to the frame the vanilla hand pass started from.
  */
-@Mixin(ItemInHandRenderer.class)
+@Mixin(FirstPersonHandsAndItemsRenderer.class)
 public class FpArmRendererMixin {
 
     @Shadow
@@ -80,14 +79,10 @@ public class FpArmRendererMixin {
                                               //?}
                                               int combinedLight, float equippedProgress, float swingProgress, HumanoidArm arm,
                                               //? if >=26.3 {
-                                              //PlayerRenderState playerState,
+                                              PlayerRenderState playerState,
                                               //?}
                                               CallbackInfo ci) {
         boolean playerAnimLib$playerArmMode = FpRenderState.isPlayerArmMode(this.minecraft.player);
-        if (FpDebug.logThisFrame()) {
-            FpDebug.log("vanilla renderPlayerArm arm=" + arm + " playerArmMode=" + playerAnimLib$playerArmMode
-                    + " pose=" + FpDebug.mat(poseStack) + " light=" + combinedLight);
-        }
         if (playerAnimLib$playerArmMode) {
             ci.cancel();
         }
@@ -101,7 +96,7 @@ public class FpArmRendererMixin {
      * collector at the end of {@code renderHandsWithItems}, so drawing at the TAIL handed the rig to
      * the next frame's flush, outside the first-person pass.
      */
-    @Inject(method = "renderHandsWithItems", at = @At("HEAD"))
+    @Inject(method = "submitHandsWithItems", at = @At("HEAD"))
     private void playerAnimLib$renderFpArms(float partialTicks, PoseStack poseStack,
                                             //? if >=1.21.11 {
                                             SubmitNodeCollector buffer,
@@ -109,26 +104,21 @@ public class FpArmRendererMixin {
                                             //MultiBufferSource.BufferSource buffer,
                                             //?}
                                             //? if >=26.3 {
-                                            //PlayerRenderState playerState, FirstPersonHandsAndItemsRenderState handsState,
+                                            PlayerRenderState playerState, FirstPersonHandsAndItemsRenderState handsState,
                                             //?} else {
-                                            LocalPlayer localPlayer, int combinedLight,
+                                            //LocalPlayer localPlayer, int combinedLight,
                                             //?}
                                             CallbackInfo ci) {
         // Captured before any early return below can skip it: the item pass rewinds to this frame.
         FpRenderState.captureItemFrame(poseStack);
-        if (FpDebug.beginFrame()) {
-            FpDebug.log("frame captured=" + FpDebug.mat(poseStack)
-                    + " cameraPitch=" + (this.minecraft.player == null ? 0.0F : this.minecraft.player.getXRot())
-                    + " cameraYaw=" + (this.minecraft.player == null ? 0.0F : this.minecraft.player.getYRot()));
-        }
 
         //? if >=26.3 {
-        /*// 26.3 has no player or packed light parameter: both live in the player render state.
+        // 26.3 has no player or packed light parameter: both live in the player render state.
         LocalPlayer localPlayer = this.minecraft.player;
         AvatarRenderState avatarRenderState = playerState.avatarRenderState;
         if (avatarRenderState == null) return;
         int combinedLight = avatarRenderState.lightCoords;
-        *///?}
+        //?}
         if (!FpRenderState.isPlayerArmMode(localPlayer)) return;
         if (!this.minecraft.options.getCameraType().isFirstPerson()) return;
 
@@ -173,17 +163,6 @@ public class FpArmRendererMixin {
         }
         FpArmRenderUtil.applyArmDisplayTransform(poseStack, FpRenderState.ARM_DISPLAY_TRANSLATION, FpRenderState.ARM_DISPLAY_SCALE);
         FpArmRenderUtil.applyRootTransform(poseStack, FpRenderState.fpPlayerArms, FpRenderState.fpRootPivot);
-        if (FpDebug.logThisFrame()) {
-            FpDebug.log("arms anchor=" + (FpRenderState.isHandAnchored() ? "hand" : "camera")
-                    + " geoModel=" + FpModelRenderer.modelId() + " geoTexture=" + FpModelRenderer.texture()
-                    + " light=" + combinedLight + " dispScale=" + FpRenderState.ARM_DISPLAY_SCALE
-                    + " | " + FpDebug.bone(FpRenderState.fpPlayerArms)
-                    + " | " + FpDebug.bone(FpRenderState.fpRightArm)
-                    + " | " + FpDebug.bone(FpRenderState.fpLeftArm)
-                    + " | " + FpDebug.bone(FpRenderState.fpRightItem)
-                    + " | " + FpDebug.bone(FpRenderState.fpLeftItem)
-                    + " | armsFrame=" + FpDebug.mat(poseStack));
-        }
 
         // Optional preview of the AzureLib item model that owns the rig (see /fp_anim model), rendered
         // in the same frame as the arms. Arms the clip does not animate are skipped completely.
@@ -241,18 +220,18 @@ public class FpArmRendererMixin {
         FpArmRenderUtil.applyItemTransform(poseStack, right ? FpRenderState.fpRightItem : FpRenderState.fpLeftItem,
                 FpRenderState.isHandAnchored() ? FpArmRenderUtil.NO_PIVOT
                         : (right ? FpArmRenderUtil.RIGHT_ITEM_PIVOT : FpArmRenderUtil.LEFT_ITEM_PIVOT));
-        if (FpDebug.logThisFrame()) {
-            FpDebug.log("item " + (right ? "right" : "left")
-                    + " | " + FpDebug.bone(right ? FpRenderState.fpRightArm : FpRenderState.fpLeftArm)
-                    + " | " + FpDebug.bone(right ? FpRenderState.fpRightItem : FpRenderState.fpLeftItem)
-                    + " | itemFrame=" + FpDebug.mat(poseStack));
-        }
+        //? if >=1.21.11 {
+        // 1.21.1's ItemRenderer#renderStatic centered the item model with translate(-0.5,-0.5,-0.5);
+        // the 1.21.11 item pipeline bakes the quads and no longer does that, so apply it here to keep
+        // the held item aligned with Blockbench.
+        poseStack.translate(-0.5F, -0.5F, -0.5F);
+        //?}
         this.playerAnimLib$fpItemPushed = true;
         FpRenderState.isFpItemPass = true;
     }
 
     //? if >=26.3 {
-    /*@Inject(method = "renderItem", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/renderer/item/ItemStackRenderState;submit(Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/SubmitNodeCollector;III)V", shift = At.Shift.BEFORE))
+    @Inject(method = "submitArmWithItem", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/renderer/item/ItemStackRenderState;submit(Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/SubmitNodeCollector;III)V", shift = At.Shift.BEFORE))
     private void playerAnimLib$pushFpItemTransform(PlayerRenderState playerState, FirstPersonHandsAndItemsRenderState handsState,
                                                    float equipProgress, float swingProgress, InteractionHand hand,
                                                    float swapScale, ItemStack itemStack, float height, PoseStack poseStack,
@@ -261,7 +240,7 @@ public class FpArmRendererMixin {
                 playerAnimLib$isRightHand(playerState, hand), poseStack);
     }
 
-    @Inject(method = "renderItem", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/renderer/item/ItemStackRenderState;submit(Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/SubmitNodeCollector;III)V", shift = At.Shift.AFTER))
+    @Inject(method = "submitArmWithItem", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/renderer/item/ItemStackRenderState;submit(Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/SubmitNodeCollector;III)V", shift = At.Shift.AFTER))
     private void playerAnimLib$popFpItemTransform(PlayerRenderState playerState, FirstPersonHandsAndItemsRenderState handsState,
                                                   float equipProgress, float swingProgress, InteractionHand hand,
                                                   float swapScale, ItemStack itemStack, float height, PoseStack poseStack,
@@ -269,46 +248,46 @@ public class FpArmRendererMixin {
         this.playerAnimLib$popFpItem(poseStack);
     }
 
-    /^*
+    /**
      * Mirrors how {@code submitArmWithItem} resolves the arm of a hand: the main hand item belongs to
      * the avatar's main arm and the off hand item to the opposite one. 26.3 dropped the
      * {@code ItemDisplayContext} the older item pass used to identify the hand with.
-     ^/
+     */
     @Unique
     private static boolean playerAnimLib$isRightHand(PlayerRenderState playerState, InteractionHand hand) {
         AvatarRenderState avatar = playerState.avatarRenderState;
         HumanoidArm mainArm = avatar != null ? avatar.mainArm : HumanoidArm.RIGHT;
         return (hand == InteractionHand.MAIN_HAND ? mainArm : mainArm.getOpposite()) == HumanoidArm.RIGHT;
     }
-    *///?}
+    //?}
 
     //? if >=1.21.11 && <26.3 {
-    // HEAD/RETURN of renderItem on purpose: on 1.21.11 renderItem first bakes the item through
+    /*// HEAD/RETURN of renderItem on purpose: on 1.21.11 renderItem first bakes the item through
     // ItemModelResolver#updateForTopItem, where the display transform is applied, so injecting around
     // submit() would leave that bake outside the animated frame. Wrapping the whole method keeps the
     // pose balanced even if submit() is skipped.
-    @Inject(method = "renderItem", at = @At("HEAD"))
+    @Inject(method = "submitArmWithItem", at = @At("HEAD"))
     private void playerAnimLib$pushFpItemTransform(LivingEntity entity, ItemStack itemStack, ItemDisplayContext displayContext,
                                                    PoseStack poseStack, SubmitNodeCollector buffer, int seed, CallbackInfo ci) {
         this.playerAnimLib$pushFpItem(entity, displayContext != ItemDisplayContext.FIRST_PERSON_LEFT_HAND, poseStack);
     }
 
-    @Inject(method = "renderItem", at = @At("RETURN"))
+    @Inject(method = "submitArmWithItem", at = @At("RETURN"))
     private void playerAnimLib$popFpItemTransform(LivingEntity entity, ItemStack itemStack, ItemDisplayContext displayContext,
                                                   PoseStack poseStack, SubmitNodeCollector buffer, int seed, CallbackInfo ci) {
         this.playerAnimLib$popFpItem(poseStack);
     }
-    //?}
+    *///?}
 
     //? if <1.21.11 {
-    /*@Inject(method = "renderItem", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/renderer/entity/ItemRenderer;renderStatic(Lnet/minecraft/world/entity/LivingEntity;Lnet/minecraft/world/item/ItemStack;Lnet/minecraft/world/item/ItemDisplayContext;ZLcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/MultiBufferSource;Lnet/minecraft/world/level/Level;III)V", shift = At.Shift.BEFORE))
+    /*@Inject(method = "submitArmWithItem", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/renderer/entity/ItemRenderer;renderStatic(Lnet/minecraft/world/entity/LivingEntity;Lnet/minecraft/world/item/ItemStack;Lnet/minecraft/world/item/ItemDisplayContext;ZLcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/MultiBufferSource;Lnet/minecraft/world/level/Level;III)V", shift = At.Shift.BEFORE))
     private void playerAnimLib$pushFpItemTransform(LivingEntity entity, ItemStack itemStack, ItemDisplayContext displayContext,
                                                    boolean leftHand, PoseStack poseStack, MultiBufferSource buffer, int seed,
                                                    CallbackInfo ci) {
         this.playerAnimLib$pushFpItem(entity, displayContext != ItemDisplayContext.FIRST_PERSON_LEFT_HAND, poseStack);
     }
 
-    @Inject(method = "renderItem", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/renderer/entity/ItemRenderer;renderStatic(Lnet/minecraft/world/entity/LivingEntity;Lnet/minecraft/world/item/ItemStack;Lnet/minecraft/world/item/ItemDisplayContext;ZLcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/MultiBufferSource;Lnet/minecraft/world/level/Level;III)V", shift = At.Shift.AFTER))
+    @Inject(method = "submitArmWithItem", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/renderer/entity/ItemRenderer;renderStatic(Lnet/minecraft/world/entity/LivingEntity;Lnet/minecraft/world/item/ItemStack;Lnet/minecraft/world/item/ItemDisplayContext;ZLcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/MultiBufferSource;Lnet/minecraft/world/level/Level;III)V", shift = At.Shift.AFTER))
     private void playerAnimLib$popFpItemTransform(LivingEntity entity, ItemStack itemStack, ItemDisplayContext displayContext,
                                                   boolean leftHand, PoseStack poseStack, MultiBufferSource buffer, int seed,
                                                   CallbackInfo ci) {

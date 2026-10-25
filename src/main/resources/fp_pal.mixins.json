@@ -13,6 +13,7 @@
     "CameraAccessor",
     "CameraMixin",
     "ItemTransformMixin",
+    "firstPerson.AvatarRendererMixin",
     "firstPerson.FpArmRendererMixin",
     "firstPerson.ItemInHandRendererMixin"
   ]

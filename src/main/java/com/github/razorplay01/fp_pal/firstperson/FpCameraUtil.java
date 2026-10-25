@@ -26,7 +26,7 @@ public final class FpCameraUtil {
 
         // Roll around the camera's local Z axis; the cached direction vectors must be refreshed
         // afterwards because Camera exposes no setRoll method.
-        float roll = transform.getRotZ();
+        float roll = transform.rotation.z;
         if (roll != 0.0F) {
             Quaternionf rotation = camera.rotation();
             rotation.rotateZ(roll);
@@ -42,11 +42,19 @@ public final class FpCameraUtil {
             camera.getUpVector().set(new Vector3f(0.0F, 1.0F, 0.0F).rotate(rotation));
             camera.getLeftVector().set(new Vector3f(-1.0F, 0.0F, 0.0F).rotate(rotation));
             *///?}
+
+            //? if >=26.1.2 {
+            // 26.x caches the view-rotation matrix and only recomputes it when its dirty flag is set.
+            // The roll mutates the rotation quaternion directly, so the flag must be marked dirty as
+            // well, otherwise the render state reuses a stale (un-rolled) view matrix.
+            ((CameraAccessor) camera).playerAnimLib$setMatrixPropertiesDirty(
+                    ((CameraAccessor) camera).playerAnimLib$getMatrixPropertiesDirty() | 3);
+            //?}
         }
 
-        float x = transform.getPosX() / 16.0F;
-        float y = transform.getPosY() / 16.0F;
-        float z = transform.getPosZ() / 16.0F;
+        float x = transform.position.x / 16.0F;
+        float y = transform.position.y / 16.0F;
+        float z = transform.position.z / 16.0F;
         if (x == 0.0F && y == 0.0F && z == 0.0F) return;
 
         //? if >=1.21.11 {

@@ -48,10 +48,6 @@ public final class FpRenderBuffer {
      */
     public void drawModelPart(ModelPart part, PoseStack poseStack, RenderType renderType,
                               int packedLight, int packedOverlay) {
-        if (FpDebug.logThisFrame()) {
-            FpDebug.log("drawModelPart light=" + packedLight + " type=" + renderType
-                    + " pose=" + FpDebug.mat(poseStack));
-        }
         //? if >=1.21.11 {
         this.collector.submitModelPart(part, poseStack, renderType, packedLight, packedOverlay, null);
         //?} else {

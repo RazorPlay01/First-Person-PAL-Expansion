@@ -13,7 +13,7 @@ import net.minecraft.world.level.Level;
 //import net.minecraft.world.level.BlockGetter;
 //?}
 //? if >=26.1.2 {
-//import net.minecraft.client.renderer.state.level.CameraRenderState;
+import net.minecraft.client.renderer.state.level.CameraRenderState;
 //?}
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
@@ -30,22 +30,22 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 public abstract class CameraMixin {
 
     //? if >=26.1.2 {
-    /*@Inject(method = "extractRenderState", at = @At("HEAD"))
+    @Inject(method = "extractRenderState", at = @At("HEAD"))
     private void playerAnimLib$applyFpCamera(CameraRenderState renderState,
                                              //? if >=26.3 {
-                                             //DeltaTracker deltaTracker,
+                                             DeltaTracker deltaTracker,
                                              //?} else {
-                                             float partialTick,
+                                             //float partialTick,
                                              //?}
                                              CallbackInfo ci) {
         //? if >=26.3 {
-        /^// 26.3 hands the extraction a DeltaTracker instead of a partial tick.
+        // 26.3 hands the extraction a DeltaTracker instead of a partial tick.
         float partialTick = deltaTracker.getGameTimeDeltaPartialTick(true);
-        ^///?}
+        //?}
         this.playerAnimLib$applyFpCameraTo((Camera) (Object) this, partialTick);
     }
-    *///?} else {
-    // 1.21.11 changed the level parameter of Camera#setup from BlockGetter to Level; Mixin compares
+    //?} else {
+    /*// 1.21.11 changed the level parameter of Camera#setup from BlockGetter to Level; Mixin compares
     // handler parameters by exact type.
     @Inject(method = "setup", at = @At("TAIL"))
     private void playerAnimLib$applyFpCamera(
@@ -60,7 +60,7 @@ public abstract class CameraMixin {
         if (detached || thirdPersonReverse) return;
         this.playerAnimLib$applyFpCameraTo((Camera) (Object) this, partialTick);
     }
-    //?}
+    *///?}
 
     /**
      * Shared entry point: the animated camera only applies to the local player's first-person view.

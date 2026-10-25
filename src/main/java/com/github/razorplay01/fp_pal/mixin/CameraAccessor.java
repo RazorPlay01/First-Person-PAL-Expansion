@@ -29,6 +29,18 @@ public interface CameraAccessor {
     Vector3f playerAnimLib$getLeftVector();
     //?}
 
+    //? if >=26.1.2 {
+    // 26.x caches the view-rotation matrix and only recomputes it when this dirty flag is set.
+    // Rolling the camera via rotation() alone leaves a stale (un-rolled) matrix in the render state,
+    // so the roll must mark the matrix dirty too. Bit 1 invalidates the view-rotation matrix and
+    // bit 2 the view-rotation-projection matrix.
+    @Accessor("matrixPropertiesDirty")
+    int playerAnimLib$getMatrixPropertiesDirty();
+
+    @Accessor("matrixPropertiesDirty")
+    void playerAnimLib$setMatrixPropertiesDirty(int matrixPropertiesDirty);
+    //?}
+
     /**
      * Applies the final world position of the animated first-person camera. Camera#setPosition is
      * protected, so this invoker is used by {@code FpCameraUtil}.

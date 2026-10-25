@@ -3,6 +3,7 @@ package com.github.razorplay01.fp_pal.firstperson;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.zigythebird.playeranimcore.bones.PlayerAnimBone;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.model.geom.ModelPart;
 import net.minecraft.client.model.player.PlayerModel;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.client.renderer.rendertype.RenderType;
@@ -107,127 +108,64 @@ public final class FpArmRenderUtil {
         applyArmTransform(poseStack, bone, pivot);
 
         if (LEFT_ARM_BONE.equals(bone.getName())) {
-            renderLeftArm(poseStack, pivot, playerModel, playerSkin, packedLight, render);
+            renderArm(poseStack, playerModel.leftArm, playerModel.leftSleeve, pivot, false, playerSkin, packedLight, render);
         } else {
-            renderRightArm(poseStack, pivot, playerModel, playerSkin, packedLight, render);
+            renderArm(poseStack, playerModel.rightArm, playerModel.rightSleeve, pivot, true, playerSkin, packedLight, render);
         }
 
         poseStack.popPose();
     }
 
     // entityCutout instead of vanilla's entityTranslucent: the deferred collector path does not honour
-    // entityTranslucent, so the sleeve's transparent pixels came out as an opaque black copy of the arm.
+    // entityTranslucent, so the sleeve's transparent pixels would render as black. entityCutout discards
+    // them with an alpha test and also works for the opaque arm.
     private static RenderType sleeveRenderType(Identifier playerSkin) {
         return RenderTypes.entityCutout(playerSkin);
     }
 
     /**
-     * Renders the left arm and sleeve. 1:1 of {@code AzItemArmRenderUtil#renderLeftArm}.
+     * Renders a vanilla first-person arm with its sleeve.
+     * <p>
+     * Since 1.21.9 the sleeve is a child of the arm, so a single {@code entityCutout} pass draws both:
+     * the alpha test keeps the opaque arm and discards the sleeve's transparent pixels (which would
+     * render black with {@code entitySolid} or {@code entityTranslucent} on the deferred pipeline).
      */
-    private static void renderLeftArm(
+    private static void renderArm(
             PoseStack poseStack,
+            ModelPart arm,
+            ModelPart sleeve,
             float[] pivot,
-            //? if >=1.21.11 {
-            PlayerModel playerModel,
-            //?} else {
-            //PlayerModel<?> playerModel,
-            //?}
+            boolean rightHand,
             Identifier playerSkin,
             int packedLight,
             FpRenderBuffer render
     ) {
         poseStack.scale(0.67F, 1.33F, 0.67F);
-        poseStack.translate(-0.25, -0.43625, 0.1625);
+        poseStack.translate(rightHand ? 0.25F : -0.25F, -0.43625F, 0.1625F);
 
-        // Reset before drawing: from 1.21.9 drawModelPart only submits the part and it is rasterised one
-        // frame later, so the pose has to stay until then. The shared model is restored by
-        // #resetPlayerModelArms when the arm mode is left.
-        playerModel.leftArm.resetPose();
-        playerModel.leftSleeve.resetPose();
-        playerModel.leftArm.xScale = 1.0F;
-        playerModel.leftArm.yScale = 1.0F;
-        playerModel.leftArm.zScale = 1.0F;
-        playerModel.leftSleeve.xScale = 1.0F;
-        playerModel.leftSleeve.yScale = 1.0F;
-        playerModel.leftSleeve.zScale = 1.0F;
+        arm.resetPose();
+        sleeve.resetPose();
+        arm.xScale = 1.0F;
+        arm.yScale = 1.0F;
+        arm.zScale = 1.0F;
+        sleeve.xScale = 1.0F;
+        sleeve.yScale = 1.0F;
+        sleeve.zScale = 1.0F;
 
-        playerModel.leftArm.setPos(pivot[0], pivot[1], pivot[2]);
-        playerModel.leftArm.setRotation(0, 0, 0);
-        render.drawModelPart(
-                playerModel.leftArm,
-                poseStack,
-                RenderTypes.entitySolid(playerSkin),
-                packedLight,
-                OverlayTexture.NO_OVERLAY
-        );
+        arm.setPos(pivot[0], pivot[1], pivot[2]);
+        arm.setRotation(0, 0, 0);
 
-        // Left sleeve (see #sleeveRenderType for the render type choice).
-        playerModel.leftSleeve.setPos(pivot[0], pivot[1], pivot[2]);
-        playerModel.leftSleeve.setRotation(0, 0, 0);
-        render.drawModelPart(
-                playerModel.leftSleeve,
-                poseStack,
-                sleeveRenderType(playerSkin),
-                packedLight,
-                OverlayTexture.NO_OVERLAY
-        );
-
-        // Deliberately no reset here: the arm was only submitted above and is rasterised when the
-        // collector is flushed, so the pose has to survive until then (see the top of this method).
-    }
-
-    /**
-     * Renders the right arm and sleeve. 1:1 of {@code AzItemArmRenderUtil#renderRightArm}.
-     */
-    private static void renderRightArm(
-            PoseStack poseStack,
-            float[] pivot,
-            //? if >=1.21.11 {
-            PlayerModel playerModel,
-            //?} else {
-            //PlayerModel<?> playerModel,
-            //?}
-            Identifier playerSkin,
-            int packedLight,
-            FpRenderBuffer render
-    ) {
-        poseStack.scale(0.67F, 1.33F, 0.67F);
-        poseStack.translate(0.25, -0.43625, 0.1625);
-
-        // Reset before drawing: from 1.21.9 drawModelPart only submits the part and it is rasterised one
-        // frame later, so the pose has to stay until then. The shared model is restored by
-        // #resetPlayerModelArms when the arm mode is left.
-        playerModel.rightArm.resetPose();
-        playerModel.rightSleeve.resetPose();
-        playerModel.rightArm.xScale = 1.0F;
-        playerModel.rightArm.yScale = 1.0F;
-        playerModel.rightArm.zScale = 1.0F;
-        playerModel.rightSleeve.xScale = 1.0F;
-        playerModel.rightSleeve.yScale = 1.0F;
-        playerModel.rightSleeve.zScale = 1.0F;
-
-        playerModel.rightArm.setPos(pivot[0], pivot[1], pivot[2]);
-        playerModel.rightArm.setRotation(0, 0, 0);
-        render.drawModelPart(
-                playerModel.rightArm,
-                poseStack,
-                RenderTypes.entitySolid(playerSkin),
-                packedLight,
-                OverlayTexture.NO_OVERLAY
-        );
-
-        // Right sleeve (see #sleeveRenderType for the render type choice).
-        playerModel.rightSleeve.setPos(pivot[0], pivot[1], pivot[2]);
-        playerModel.rightSleeve.setRotation(0, 0, 0);
-        render.drawModelPart(
-                playerModel.rightSleeve,
-                poseStack,
-                sleeveRenderType(playerSkin),
-                packedLight,
-                OverlayTexture.NO_OVERLAY
-        );
-
-        // No reset here: the pose has to survive until the collector is flushed (see the top of this method).
+        //? if >=1.21.11 {
+        // The sleeve is a child of the arm, so a single entityCutout pass draws both correctly.
+        render.drawGeometry(poseStack, RenderTypes.entityCutout(playerSkin), (pose, consumer) -> {
+            arm.render(pose, consumer, packedLight, OverlayTexture.NO_OVERLAY);
+        });
+        //?} else {
+        /*sleeve.setPos(pivot[0], pivot[1], pivot[2]);
+        sleeve.setRotation(0, 0, 0);
+        render.drawModelPart(arm, poseStack, RenderTypes.entitySolid(playerSkin), packedLight, OverlayTexture.NO_OVERLAY);
+        render.drawModelPart(sleeve, poseStack, sleeveRenderType(playerSkin), packedLight, OverlayTexture.NO_OVERLAY);
+        *///?}
     }
 
     /**
@@ -307,11 +245,11 @@ public final class FpArmRenderUtil {
      * around the view origin. The camera keeps PAL's {@code (+X, -Y, +Z)} convention.
      */
     public static void applyCameraTransform(PoseStack poseStack, PlayerAnimBone camera) {
-        poseStack.translate(camera.getPosX() / 16.0F, -camera.getPosY() / 16.0F, camera.getPosZ() / 16.0F);
+        poseStack.translate(camera.position.x / 16.0F, -camera.position.y / 16.0F, camera.position.z / 16.0F);
 
-        float rotX = camera.getRotX();
-        float rotY = camera.getRotY();
-        float rotZ = camera.getRotZ();
+        float rotX = camera.rotation.x;
+        float rotY = camera.rotation.y;
+        float rotZ = camera.rotation.z;
 
         if (rotZ != 0)
             FpRenderState.rotatePose(poseStack, Z_QUATERNION_CACHE.rotationXYZ(0f, 0f, rotZ));
@@ -322,7 +260,7 @@ public final class FpArmRenderUtil {
         if (rotX != 0)
             FpRenderState.rotatePose(poseStack, X_QUATERNION_CACHE.rotationXYZ(rotX, 0f, 0f));
 
-        poseStack.scale(camera.getScaleX(), camera.getScaleY(), camera.getScaleZ());
+        poseStack.scale(camera.scale.x, camera.scale.y, camera.scale.z);
     }
 
     /**
@@ -387,7 +325,7 @@ public final class FpArmRenderUtil {
      * PAL's loader keeps the raw Blockbench value.
      */
     public static void translateMatrixToBone(PoseStack poseStack, PlayerAnimBone bone) {
-        poseStack.translate(-bone.getPosX() / 16.0F, bone.getPosY() / 16.0F, bone.getPosZ() / 16.0F);
+        poseStack.translate(-bone.position.x / 16.0F, bone.position.y / 16.0F, bone.position.z / 16.0F);
     }
 
     public static void translateToPivotPoint(PoseStack poseStack, float[] pivot) {
@@ -400,9 +338,9 @@ public final class FpArmRenderUtil {
 
     public static void rotateMatrixAroundBone(PoseStack poseStack, PlayerAnimBone bone) {
         // AzureLib negates X and Y when baking, PAL keeps the raw value, so the same negation is applied here.
-        float rotX = -bone.getRotX();
-        float rotY = -bone.getRotY();
-        float rotZ = bone.getRotZ();
+        float rotX = -bone.rotation.x;
+        float rotY = -bone.rotation.y;
+        float rotZ = bone.rotation.z;
 
         if (rotZ != 0)
             FpRenderState.rotatePose(poseStack, Z_QUATERNION_CACHE.rotationXYZ(0f, 0f, rotZ));
@@ -415,7 +353,7 @@ public final class FpArmRenderUtil {
     }
 
     public static void scaleMatrixForBone(PoseStack poseStack, PlayerAnimBone bone) {
-        poseStack.scale(bone.getScaleX(), bone.getScaleY(), bone.getScaleZ());
+        poseStack.scale(bone.scale.x, bone.scale.y, bone.scale.z);
     }
 
     public static void translateAwayFromPivotPoint(PoseStack poseStack, float[] pivot) {

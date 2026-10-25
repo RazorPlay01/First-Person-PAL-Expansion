@@ -334,14 +334,14 @@ public final class FpGeoModel {
                 transform.setToInitialPose();
                 //? if >=26.1.2 {
                 
-                /*transform.getRotX() = rotationX;
-                transform.getRotY() = rotationY;
-                transform.getRotZ() = rotationZ;
-                *///?} else {
-                transform.setRotX(rotationX);
+                transform.rotation.x = rotationX;
+                transform.rotation.y = rotationY;
+                transform.rotation.z = rotationZ;
+                //?} else {
+                /*transform.setRotX(rotationX);
                 transform.setRotY(rotationY);
                 transform.setRotZ(rotationZ);
-                //?}
+                *///?}
             } else {
                 FpRenderState.copy(extra, transform);
             }

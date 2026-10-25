@@ -33,12 +33,12 @@ import com.zigythebird.playeranimcore.api.firstPerson.FirstPersonMode;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
 //? if >=26.3 {
-/*import net.minecraft.client.renderer.FirstPersonHandsAndItemsRenderer;
+import net.minecraft.client.renderer.FirstPersonHandsAndItemsRenderer;
 import net.minecraft.client.renderer.entity.state.AvatarRenderState;
 import net.minecraft.client.renderer.state.level.FirstPersonHandsAndItemsRenderState;
 import net.minecraft.client.renderer.state.level.PlayerRenderState;
-*///?} else {
-import net.minecraft.client.renderer.ItemInHandRenderer;
+//?} else {
+//import net.minecraft.client.renderer.ItemInHandRenderer;
 //?}
 //? if <1.21.11 {
 //import net.minecraft.client.renderer.MultiBufferSource;
@@ -48,7 +48,7 @@ import net.minecraft.client.renderer.SubmitNodeCollector;
 //?}
 import net.minecraft.world.entity.Entity;
 //? if >=26.3 {
-//import net.minecraft.world.entity.HumanoidArm;
+import net.minecraft.world.entity.HumanoidArm;
 //?}
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.item.ItemDisplayContext;
@@ -66,14 +66,14 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
  * playing. The held items are still drawn by vanilla's own renderer; this mixin only hides the items
  * that {@code FirstPersonConfiguration} explicitly asks to hide.
  */
-@Mixin(ItemInHandRenderer.class)
+@Mixin(FirstPersonHandsAndItemsRenderer.class)
 public class ItemInHandRendererMixin {
     //? if <26.3 {
-    @Shadow
+    /*@Shadow
     private float mainHandHeight;
     @Shadow
     private float offHandHeight;
-    //?}
+    *///?}
 
     @Shadow
     @Final
@@ -84,7 +84,7 @@ public class ItemInHandRendererMixin {
      * so the vanilla first-person pass is skipped. The switch is immediate instead of faded because the
      * released PAL API has no transition progress.
      */
-    @Inject(method = "renderHandsWithItems", at = @At("HEAD"), cancellable = true)
+    @Inject(method = "submitHandsWithItems", at = @At("HEAD"), cancellable = true)
     private void disableDefaultItemIfNeeded(float partialTicks, PoseStack poseStack,
                                             //? if >=1.21.11 {
                                             SubmitNodeCollector buffer,
@@ -92,13 +92,13 @@ public class ItemInHandRendererMixin {
                                             //MultiBufferSource.BufferSource buffer,
                                             //?}
                                             //? if >=26.3 {
-                                            //PlayerRenderState playerState, FirstPersonHandsAndItemsRenderState handsState,
+                                            PlayerRenderState playerState, FirstPersonHandsAndItemsRenderState handsState,
                                             //?} else {
-                                            LocalPlayer localPlayer, int combinedLight,
+                                            //LocalPlayer localPlayer, int combinedLight,
                                             //?}
                                             CallbackInfo ci) {
         //? if >=26.3 {
-        //LocalPlayer localPlayer = this.minecraft.player;
+        LocalPlayer localPlayer = this.minecraft.player;
         //?}
         if (localPlayer instanceof IAnimatedAvatar player
                 && player.playerAnimLib$getAnimManager().getFirstPersonMode() == FirstPersonMode.THIRD_PERSON_MODEL) {
@@ -106,16 +106,16 @@ public class ItemInHandRendererMixin {
             return;
         }
         //? if >=26.3 {
-        //playerAnimLib$hideConfiguredItems(playerState, handsState);
+        playerAnimLib$hideConfiguredItems(playerState, handsState);
         //?}
     }
 
     //? if >=26.3 {
-    /*/^*
+    /**
      * 26.3 builds the held items into render states before the pass runs and has no per-item hook, so
      * the render state of a hidden hand is emptied instead (cancelling submitArmWithItem would skip the
      * popPose that closes the pose it pushed).
-     ^/
+     */
     @Unique
     private static void playerAnimLib$hideConfiguredItems(PlayerRenderState playerState,
                                                           FirstPersonHandsAndItemsRenderState handsState) {
@@ -133,10 +133,10 @@ public class ItemInHandRendererMixin {
             handsState.offHandRenderState.clear();
         }
     }
-    *///?}
+    //?}
 
     //? if <26.3 {
-    @Inject(method = "tick", at = @At("TAIL"))
+    /*@Inject(method = "tick", at = @At("TAIL"))
     private void disableDefaultItemIfNeeded(CallbackInfo ci) {
         LocalPlayer localPlayer = this.minecraft.player;
         if (localPlayer instanceof IAnimatedAvatar player) {
@@ -148,20 +148,20 @@ public class ItemInHandRendererMixin {
             }
         }
     }
-    //?}
+    *///?}
 
     //? if >=1.21.11 && <26.3 {
-    @Inject(method = "renderItem", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/renderer/item/ItemStackRenderState;submit(Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/SubmitNodeCollector;III)V"), cancellable = true)
+    /*@Inject(method = "submitArmWithItem", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/renderer/item/ItemStackRenderState;submit(Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/SubmitNodeCollector;III)V"), cancellable = true)
     private void cancelItemRender(LivingEntity entity, ItemStack itemStack, ItemDisplayContext displayContext,
                                   PoseStack poseStack, SubmitNodeCollector buffer, int seed, CallbackInfo ci) {
         if (playerAnimLib$shouldHideItem(entity, displayContext)) {
             ci.cancel();
         }
     }
-    //?}
+    *///?}
 
     //? if <1.21.11 {
-    /*@Inject(method = "renderItem", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/renderer/entity/ItemRenderer;renderStatic(Lnet/minecraft/world/entity/LivingEntity;Lnet/minecraft/world/item/ItemStack;Lnet/minecraft/world/item/ItemDisplayContext;ZLcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/MultiBufferSource;Lnet/minecraft/world/level/Level;III)V"), cancellable = true)
+    /*@Inject(method = "submitArmWithItem", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/renderer/entity/ItemRenderer;renderStatic(Lnet/minecraft/world/entity/LivingEntity;Lnet/minecraft/world/item/ItemStack;Lnet/minecraft/world/item/ItemDisplayContext;ZLcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/MultiBufferSource;Lnet/minecraft/world/level/Level;III)V"), cancellable = true)
     private void cancelItemRender(LivingEntity entity, ItemStack itemStack, ItemDisplayContext displayContext,
                                   boolean leftHand, PoseStack poseStack, MultiBufferSource buffer, int seed,
                                   CallbackInfo ci) {
@@ -176,7 +176,7 @@ public class ItemInHandRendererMixin {
      * replaced by the fp_* rig.
      */
     //? if <26.3 {
-    @Unique
+    /*@Unique
     private static boolean playerAnimLib$shouldHideItem(Entity entity, ItemDisplayContext displayContext) {
         if (entity != Minecraft.getInstance().getCameraEntity()) {
             return false;
@@ -192,14 +192,14 @@ public class ItemInHandRendererMixin {
             return false;
         }
         //?} else {
-        /*if (!FirstPersonMode.isFirstPersonPass() && !FpRenderState.isPlayerArmMode(entity)) {
+        /^if (!FirstPersonMode.isFirstPersonPass() && !FpRenderState.isPlayerArmMode(entity)) {
             return false;
         }
-        *///?}
+        ^///?}
         FirstPersonConfiguration config = FpRenderState.firstPersonConfiguration(entity);
         boolean rightHand = displayContext == ItemDisplayContext.FIRST_PERSON_RIGHT_HAND
                 || displayContext == ItemDisplayContext.THIRD_PERSON_RIGHT_HAND;
         return rightHand ? !config.isShowRightItem() : !config.isShowLeftItem();
     }
-    //?}
+    *///?}
 }

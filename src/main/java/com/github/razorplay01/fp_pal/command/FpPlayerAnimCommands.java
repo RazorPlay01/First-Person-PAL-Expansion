@@ -58,9 +58,9 @@ public class FpPlayerAnimCommands {
         } else if (Minecraft.getInstance().player != null) {
             //? if >=1.21.11 && <26.1.2 {
             
-            Minecraft.getInstance().player.displayClientMessage(message, false);
+            //Minecraft.getInstance().player.displayClientMessage(message, false);
             //?} else {
-            //Minecraft.getInstance().player.sendSystemMessage(message);
+            Minecraft.getInstance().player.sendSystemMessage(message);
             //?}
         }
     }
@@ -73,9 +73,9 @@ public class FpPlayerAnimCommands {
             cmdSource.sendFailure(message);
         } else if (Minecraft.getInstance().player != null) {
             //? if >=1.21.11 && <26.1.2 {
-            Minecraft.getInstance().player.displayClientMessage(message.copy().withStyle(ChatFormatting.RED), false);
+            //Minecraft.getInstance().player.displayClientMessage(message.copy().withStyle(ChatFormatting.RED), false);
             //?} else {
-            //Minecraft.getInstance().player.sendSystemMessage(message.copy().withStyle(ChatFormatting.RED));
+            Minecraft.getInstance().player.sendSystemMessage(message.copy().withStyle(ChatFormatting.RED));
             //?}
         }
     }
@@ -395,9 +395,9 @@ public class FpPlayerAnimCommands {
             sendMessage(source, Component.literal(String.format(Locale.ROOT,
                     "  %s pos=(%.3f, %.3f, %.3f) rot=(%.1f, %.1f, %.1f) scale=(%.2f, %.2f, %.2f)",
                     entry.getKey(),
-                    bone.getPosX(), bone.getPosY(), bone.getPosZ(),
-                    Math.toDegrees(bone.getRotX()), Math.toDegrees(bone.getRotY()), Math.toDegrees(bone.getRotZ()),
-                    bone.getScaleX(), bone.getScaleY(), bone.getScaleZ())));
+                    bone.position.x, bone.position.y, bone.position.z,
+                    Math.toDegrees(bone.rotation.x), Math.toDegrees(bone.rotation.y), Math.toDegrees(bone.rotation.z),
+                    bone.scale.x, bone.scale.y, bone.scale.z)));
         }
         return 1;
     }

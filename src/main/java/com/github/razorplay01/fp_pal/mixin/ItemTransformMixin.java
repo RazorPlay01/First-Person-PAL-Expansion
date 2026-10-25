@@ -1,12 +1,11 @@
 package com.github.razorplay01.fp_pal.mixin;
 
-import com.github.razorplay01.fp_pal.firstperson.FpDebug;
 import com.github.razorplay01.fp_pal.firstperson.FpRenderState;
 import com.mojang.blaze3d.vertex.PoseStack;
 //? if >=26.1.2 {
-//import net.minecraft.client.resources.model.cuboid.ItemTransform;
+import net.minecraft.client.resources.model.cuboid.ItemTransform;
 //?} else {
-import net.minecraft.client.renderer.block.model.ItemTransform;
+//import net.minecraft.client.renderer.block.model.ItemTransform;
 //?}
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
@@ -32,14 +31,7 @@ public class ItemTransformMixin {
                                                        //PoseStack poseStack,
                                                        //?}
                                                        CallbackInfo ci) {
-        boolean skip = FpRenderState.isFpItemPass;
-        if (FpDebug.logThisFrame()) {
-            FpDebug.log("itemTransform.apply leftHand=" + leftHand + " fpItemPass=" + skip
-                    + (skip ? " -> SKIPPED" : " -> APPLIED"));
-        }
-        if (skip) {
-            // Cancelling works on every version: the transform is applied to the pose stack's own Pose,
-            // so not writing it leaves the accumulated matrix untouched (writing identity would wipe it).
+        if (FpRenderState.isFpItemPass) {
             ci.cancel();
         }
     }

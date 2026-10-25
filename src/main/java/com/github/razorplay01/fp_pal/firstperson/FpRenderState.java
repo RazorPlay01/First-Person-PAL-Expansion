@@ -109,9 +109,9 @@ public class FpRenderState {
      */
     public static void rotatePose(PoseStack poseStack, Quaternionf rotation) {
         //? if >=26.3 {
-        //poseStack.rotate(rotation);
+        poseStack.rotate(rotation);
         //?} else {
-        poseStack.mulPose(rotation);
+        //poseStack.mulPose(rotation);
         //?}
     }
 
@@ -122,9 +122,9 @@ public class FpRenderState {
     public static PlayerAnimBone get3DTransform(AvatarAnimManager manager, String boneName) {
         PlayerAnimBone bone = new PlayerAnimBone(boneName);
         //? if >=26.1.2 {
-        //manager.get3DTransform(bone);
+        manager.get3DTransform(bone);
         //?} else {
-        bone = manager.get3DTransform(bone);
+        //bone = manager.get3DTransform(bone);
         //?}
         return bone;
     }
@@ -336,15 +336,15 @@ public class FpRenderState {
      * @return true when the bone has no position, rotation or scale, i.e. it is not animated.
      */
     public static boolean isIdentity(PlayerAnimBone bone) {
-        return Math.abs(bone.getPosX()) < 1.0E-6F
-                && Math.abs(bone.getPosY()) < 1.0E-6F
-                && Math.abs(bone.getPosZ()) < 1.0E-6F
-                && Math.abs(bone.getRotX()) < 1.0E-6F
-                && Math.abs(bone.getRotY()) < 1.0E-6F
-                && Math.abs(bone.getRotZ()) < 1.0E-6F
-                && Math.abs(bone.getScaleX() - 1.0F) < 1.0E-6F
-                && Math.abs(bone.getScaleY() - 1.0F) < 1.0E-6F
-                && Math.abs(bone.getScaleZ() - 1.0F) < 1.0E-6F;
+        return Math.abs(bone.position.x) < 1.0E-6F
+                && Math.abs(bone.position.y) < 1.0E-6F
+                && Math.abs(bone.position.z) < 1.0E-6F
+                && Math.abs(bone.rotation.x) < 1.0E-6F
+                && Math.abs(bone.rotation.y) < 1.0E-6F
+                && Math.abs(bone.rotation.z) < 1.0E-6F
+                && Math.abs(bone.scale.x - 1.0F) < 1.0E-6F
+                && Math.abs(bone.scale.y - 1.0F) < 1.0E-6F
+                && Math.abs(bone.scale.z - 1.0F) < 1.0E-6F;
     }
 
     /**
@@ -352,23 +352,23 @@ public class FpRenderState {
      */
     public static void copy(PlayerAnimBone from, PlayerAnimBone to) {
         //? if >=26.1.2 {
-        /*// PAL 1.2 keeps a bone's transform in public JOML vectors, so the copy is vector-wise.
+        // PAL 1.2 keeps a bone's transform in public JOML vectors, so the copy is vector-wise.
         to.position.set(from.position);
         to.rotation.set(from.rotation);
         to.scale.set(from.scale);
-        *///?} else {
-        to.setPosX(from.getPosX());
-        to.setPosY(from.getPosY());
-        to.setPosZ(from.getPosZ());
+        //?} else {
+        /*to.setPosX(from.position.x);
+        to.setPosY(from.position.y);
+        to.setPosZ(from.position.z);
 
-        to.setRotX(from.getRotX());
-        to.setRotY(from.getRotY());
-        to.setRotZ(from.getRotZ());
+        to.setRotX(from.rotation.x);
+        to.setRotY(from.rotation.y);
+        to.setRotZ(from.rotation.z);
 
-        to.setScaleX(from.getScaleX());
-        to.setScaleY(from.getScaleY());
-        to.setScaleZ(from.getScaleZ());
-        //?}
+        to.setScaleX(from.scale.x);
+        to.setScaleY(from.scale.y);
+        to.setScaleZ(from.scale.z);
+        *///?}
     }
 
     /**
@@ -460,25 +460,25 @@ public class FpRenderState {
 
     private static void lerp(PlayerAnimBone from, PlayerAnimBone to, PlayerAnimBone target, float t) {
         //? if >=26.1.2 {
-        /*target.position.set(lerp(from.getPosX(), to.getPosX(), t),
-                lerp(from.getPosY(), to.getPosY(), t), lerp(from.getPosZ(), to.getPosZ(), t));
-        target.rotation.set(lerp(from.getRotX(), to.getRotX(), t),
-                lerp(from.getRotY(), to.getRotY(), t), lerp(from.getRotZ(), to.getRotZ(), t));
-        target.scale.set(lerp(from.getScaleX(), to.getScaleX(), t),
-                lerp(from.getScaleY(), to.getScaleY(), t), lerp(from.getScaleZ(), to.getScaleZ(), t));
-        *///?} else {
-        target.setPosX(lerp(from.getPosX(), to.getPosX(), t));
-        target.setPosY(lerp(from.getPosY(), to.getPosY(), t));
-        target.setPosZ(lerp(from.getPosZ(), to.getPosZ(), t));
+        target.position.set(lerp(from.position.x, to.position.x, t),
+                lerp(from.position.y, to.position.y, t), lerp(from.position.z, to.position.z, t));
+        target.rotation.set(lerp(from.rotation.x, to.rotation.x, t),
+                lerp(from.rotation.y, to.rotation.y, t), lerp(from.rotation.z, to.rotation.z, t));
+        target.scale.set(lerp(from.scale.x, to.scale.x, t),
+                lerp(from.scale.y, to.scale.y, t), lerp(from.scale.z, to.scale.z, t));
+        //?} else {
+        /*target.setPosX(lerp(from.position.x, to.position.x, t));
+        target.setPosY(lerp(from.position.y, to.position.y, t));
+        target.setPosZ(lerp(from.position.z, to.position.z, t));
 
-        target.setRotX(lerp(from.getRotX(), to.getRotX(), t));
-        target.setRotY(lerp(from.getRotY(), to.getRotY(), t));
-        target.setRotZ(lerp(from.getRotZ(), to.getRotZ(), t));
+        target.setRotX(lerp(from.rotation.x, to.rotation.x, t));
+        target.setRotY(lerp(from.rotation.y, to.rotation.y, t));
+        target.setRotZ(lerp(from.rotation.z, to.rotation.z, t));
 
-        target.setScaleX(lerp(from.getScaleX(), to.getScaleX(), t));
-        target.setScaleY(lerp(from.getScaleY(), to.getScaleY(), t));
-        target.setScaleZ(lerp(from.getScaleZ(), to.getScaleZ(), t));
-        //?}
+        target.setScaleX(lerp(from.scale.x, to.scale.x, t));
+        target.setScaleY(lerp(from.scale.y, to.scale.y, t));
+        target.setScaleZ(lerp(from.scale.z, to.scale.z, t));
+        *///?}
     }
 
     private static float lerp(float from, float to, float t) {

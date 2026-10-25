@@ -118,15 +118,3 @@ Things that legitimately differ:
   it: Blockbench adds the animation to the rest rotation, while the renderer applies the animation
   values alone. The `player_arms_import.bbmodel` rig has zero rest rotations, so this does not show
   up there.
-
-## Tests
-
-`tools/test_fp_camera.js` drives the plugin with a small three.js stand-in (real `Euler`/`Quaternion`
-order conventions, `rotation`/`quaternion` syncing) and checks the camera frame, the rig
-compensation, the item chain and the axis conversion:
-
-```
-node tools/test_fp_camera.js
-FP_TEST_GAME_AXES=1 node tools/test_fp_camera.js
-```
-
