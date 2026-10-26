@@ -44,7 +44,7 @@ Author your first-person animations in Blockbench, drop them into `assets/<names
 
 ## 📦 Installation
 
-1. **Download the mod** from [GitHub Releases](https://github.com/RazorPlay01/First-Person-PAL-Expansion) or [Modrinth](#).
+1. **Download the mod** from [GitHub Releases](https://github.com/RazorPlay01/First-Person-PAL-Expansion) or [Modrinth](https://modrinth.com/project/fp_pal).
 2. **Install the dependency**: make sure **Player Animation Library (PAL)** is in your `mods` folder.
 3. **Add the mod**: drop the `.jar` into the `mods` folder.
 4. **Launch & test**: start Minecraft and run `/fp_anim play <animationID>` to preview your first-person animations.
@@ -66,7 +66,7 @@ FpAnimationSystem.registerPaired(
         Identifier.fromNamespaceAndPath("mymod", "fp_reload"));
 ```
 
-Full documentation (bones, animation format, extra data, commands and Java API) lives in [**wiki.md**](wiki.md).
+Full documentation (bones, animation format, extra data, commands and Java API) lives in [**WIKI**](https://github.com/RazorPlay01/First-Person-PAL-Expansion/wiki).
 
 ---
 

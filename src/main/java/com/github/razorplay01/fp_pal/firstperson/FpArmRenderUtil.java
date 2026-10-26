@@ -245,11 +245,21 @@ public final class FpArmRenderUtil {
      * around the view origin. The camera keeps PAL's {@code (+X, -Y, +Z)} convention.
      */
     public static void applyCameraTransform(PoseStack poseStack, PlayerAnimBone camera) {
+        //? if >=26.1.2 {
         poseStack.translate(camera.position.x / 16.0F, -camera.position.y / 16.0F, camera.position.z / 16.0F);
+        //?} else {
+        //poseStack.translate(camera.position.x / 16.0F, -camera.position.y / 16.0F, camera.position.z / 16.0F);
+        //?}
 
+        //? if >=26.1.2 {
         float rotX = camera.rotation.x;
         float rotY = camera.rotation.y;
         float rotZ = camera.rotation.z;
+        //?} else {
+        /*float rotX = camera.rotation.x;
+        float rotY = camera.rotation.y;
+        float rotZ = camera.rotation.z;
+        *///?}
 
         if (rotZ != 0)
             FpRenderState.rotatePose(poseStack, Z_QUATERNION_CACHE.rotationXYZ(0f, 0f, rotZ));
@@ -260,7 +270,11 @@ public final class FpArmRenderUtil {
         if (rotX != 0)
             FpRenderState.rotatePose(poseStack, X_QUATERNION_CACHE.rotationXYZ(rotX, 0f, 0f));
 
+        //? if >=26.1.2 {
         poseStack.scale(camera.scale.x, camera.scale.y, camera.scale.z);
+        //?} else {
+        //poseStack.scale(camera.scale.x, camera.scale.y, camera.scale.z);
+        //?}
     }
 
     /**
@@ -325,7 +339,11 @@ public final class FpArmRenderUtil {
      * PAL's loader keeps the raw Blockbench value.
      */
     public static void translateMatrixToBone(PoseStack poseStack, PlayerAnimBone bone) {
+        //? if >=26.1.2 {
         poseStack.translate(-bone.position.x / 16.0F, bone.position.y / 16.0F, bone.position.z / 16.0F);
+        //?} else {
+        //poseStack.translate(-bone.position.x / 16.0F, bone.position.y / 16.0F, bone.position.z / 16.0F);
+        //?}
     }
 
     public static void translateToPivotPoint(PoseStack poseStack, float[] pivot) {
@@ -338,9 +356,15 @@ public final class FpArmRenderUtil {
 
     public static void rotateMatrixAroundBone(PoseStack poseStack, PlayerAnimBone bone) {
         // AzureLib negates X and Y when baking, PAL keeps the raw value, so the same negation is applied here.
+        //? if >=26.1.2 {
         float rotX = -bone.rotation.x;
         float rotY = -bone.rotation.y;
         float rotZ = bone.rotation.z;
+        //?} else {
+        /*float rotX = -bone.rotation.x;
+        float rotY = -bone.rotation.y;
+        float rotZ = bone.rotation.z;
+        *///?}
 
         if (rotZ != 0)
             FpRenderState.rotatePose(poseStack, Z_QUATERNION_CACHE.rotationXYZ(0f, 0f, rotZ));
@@ -353,7 +377,11 @@ public final class FpArmRenderUtil {
     }
 
     public static void scaleMatrixForBone(PoseStack poseStack, PlayerAnimBone bone) {
+        //? if >=26.1.2 {
         poseStack.scale(bone.scale.x, bone.scale.y, bone.scale.z);
+        //?} else {
+        //poseStack.scale(bone.scale.x, bone.scale.y, bone.scale.z);
+        //?}
     }
 
     public static void translateAwayFromPivotPoint(PoseStack poseStack, float[] pivot) {

@@ -26,7 +26,11 @@ public final class FpCameraUtil {
 
         // Roll around the camera's local Z axis; the cached direction vectors must be refreshed
         // afterwards because Camera exposes no setRoll method.
+        //? if >=26.1.2 {
         float roll = transform.rotation.z;
+        //?} else {
+        //float roll = transform.rotation.z;
+        //?}
         if (roll != 0.0F) {
             Quaternionf rotation = camera.rotation();
             rotation.rotateZ(roll);
@@ -52,9 +56,15 @@ public final class FpCameraUtil {
             //?}
         }
 
+        //? if >=26.1.2 {
         float x = transform.position.x / 16.0F;
         float y = transform.position.y / 16.0F;
         float z = transform.position.z / 16.0F;
+        //?} else {
+        /*float x = transform.position.x / 16.0F;
+        float y = transform.position.y / 16.0F;
+        float z = transform.position.z / 16.0F;
+        *///?}
         if (x == 0.0F && y == 0.0F && z == 0.0F) return;
 
         //? if >=1.21.11 {

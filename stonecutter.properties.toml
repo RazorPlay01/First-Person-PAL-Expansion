@@ -2,7 +2,7 @@
 id = "fp_pal"
 name = "First Person PAL Expansion"
 group = "com.github.razorplay01"
-version = "1.1.0"
+version = "1.1.1"
 channel_tag = ""
 description = "An add-on for PAL that allows for the animation of the player's arms and items in first-person view."
 authors = ["RazorPlay01"]
@@ -14,7 +14,7 @@ license.dist = "repo"
 sources_url = "https://github.com/RazorPlay01/First-Person-PAL-Expansion"
 homepage_url = "https://github.com/RazorPlay01/First-Person-PAL-Expansion"
 issues_url = "https://github.com/RazorPlay01/First-Person-PAL-Expansion/issues"
-discord_url = "https://discord.gg/w5ECtBcz"
+discord_url = "https://discord.gg/YP3wDfqkRt"
 environment = "client_only"
 dev_jvm_args = [
 	"-XX:+IgnoreUnrecognizedVMOptions",

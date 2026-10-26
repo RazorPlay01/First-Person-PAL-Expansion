@@ -2,7 +2,7 @@ package com.github.razorplay01.fp_pal.platform.neoforge;
 
 //? neoforge {
 
-/*import com.github.razorplay01.fp_pal.platform.Platform;
+import com.github.razorplay01.fp_pal.platform.Platform;
 import net.neoforged.fml.ModList;
 import net.neoforged.fml.loading.FMLLoader;
 
@@ -31,4 +31,4 @@ public class NeoforgePlatform implements Platform {
 	}
 	//~}
 }
-*///?}
+//?}

@@ -392,12 +392,21 @@ public class FpPlayerAnimCommands {
 
         for (Map.Entry<String, PlayerAnimBone> entry : extraBones.entrySet()) {
             PlayerAnimBone bone = entry.getValue();
+            //? if >=26.1.2 {
             sendMessage(source, Component.literal(String.format(Locale.ROOT,
                     "  %s pos=(%.3f, %.3f, %.3f) rot=(%.1f, %.1f, %.1f) scale=(%.2f, %.2f, %.2f)",
                     entry.getKey(),
                     bone.position.x, bone.position.y, bone.position.z,
                     Math.toDegrees(bone.rotation.x), Math.toDegrees(bone.rotation.y), Math.toDegrees(bone.rotation.z),
                     bone.scale.x, bone.scale.y, bone.scale.z)));
+            //?} else {
+            /*sendMessage(source, Component.literal(String.format(Locale.ROOT,
+                    "  %s pos=(%.3f, %.3f, %.3f) rot=(%.1f, %.1f, %.1f) scale=(%.2f, %.2f, %.2f)",
+                    entry.getKey(),
+                    bone.position.x, bone.position.y, bone.position.z,
+                    Math.toDegrees(bone.rotation.x), Math.toDegrees(bone.rotation.y), Math.toDegrees(bone.rotation.z),
+                    bone.scale.x, bone.scale.y, bone.scale.z)));
+            *///?}
         }
         return 1;
     }

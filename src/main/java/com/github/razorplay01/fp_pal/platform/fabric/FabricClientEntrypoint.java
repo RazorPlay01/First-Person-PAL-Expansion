@@ -2,7 +2,7 @@ package com.github.razorplay01.fp_pal.platform.fabric;
 
 //? fabric {
 
-import com.github.razorplay01.fp_pal.ModTemplate;
+/*import com.github.razorplay01.fp_pal.ModTemplate;
 import com.github.razorplay01.fp_pal.command.FpPlayerAnimCommands;
 import com.github.razorplay01.fp_pal.platform.fabric.client.IdentifiableFpAnimationResources;
 import dev.kikugie.fletching_table.annotation.fabric.Entrypoint;
@@ -23,4 +23,4 @@ public class FabricClientEntrypoint implements ClientModInitializer {
 	}
 
 }
-//?}
+*///?}

@@ -38,7 +38,7 @@ import net.minecraft.resources.Identifier;
 ## Bone conventions
 
 Your first-person animation drives these bones. Names follow the AzureLib convention, so existing
-AzureLib arm rigs (e.g. `player_arms_import.bbmodel`) work with minimal changes.
+AzureLib arm rigs (e.g. `blockbench/player_arms_import.bbmodel`) work with minimal changes.
 
 | Bone | Purpose |
 |---|---|
@@ -122,7 +122,7 @@ framed in first person. These keys are read by the add-on and are **not** bones.
 **Anchors**
 
 - `"camera"` (default): the rig origin sits on the view axis, centred like the Blockbench preview.
-  Use this for rigs authored around the model origin (`player_arms_import.bbmodel` convention).
+  Use this for rigs authored around the model origin (`blockbench/player_arms_import.bbmodel` convention).
 - `"hand"`: the rig origin is the vanilla first-person hand anchor. Use this for AzureLib item rigs
   (guns) whose arms are authored around the held item.
 

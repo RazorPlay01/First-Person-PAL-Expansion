@@ -8,9 +8,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 //? fabric {
-import com.github.razorplay01.fp_pal.platform.fabric.FabricPlatform;
+//import com.github.razorplay01.fp_pal.platform.fabric.FabricPlatform;
 //?} neoforge {
-//import com.github.razorplay01.fp_pal.platform.neoforge.NeoforgePlatform;
+import com.github.razorplay01.fp_pal.platform.neoforge.NeoforgePlatform;
  //?} forge {
 //import com.github.razorplay01.fp_pal.platform.forge.ForgePlatform;
  //?}
@@ -42,9 +42,9 @@ public class ModTemplate {
 
 	private static Platform createPlatformInstance() {
 		//? fabric {
-		return new FabricPlatform();
+		//return new FabricPlatform();
 		//?} neoforge {
-		//return new NeoforgePlatform();
+		return new NeoforgePlatform();
 		 //?} forge {
 		//return new ForgePlatform();
 		 //?}

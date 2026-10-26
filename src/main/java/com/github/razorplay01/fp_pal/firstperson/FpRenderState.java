@@ -336,6 +336,7 @@ public class FpRenderState {
      * @return true when the bone has no position, rotation or scale, i.e. it is not animated.
      */
     public static boolean isIdentity(PlayerAnimBone bone) {
+        //? if >=26.1.2 {
         return Math.abs(bone.position.x) < 1.0E-6F
                 && Math.abs(bone.position.y) < 1.0E-6F
                 && Math.abs(bone.position.z) < 1.0E-6F
@@ -345,6 +346,17 @@ public class FpRenderState {
                 && Math.abs(bone.scale.x - 1.0F) < 1.0E-6F
                 && Math.abs(bone.scale.y - 1.0F) < 1.0E-6F
                 && Math.abs(bone.scale.z - 1.0F) < 1.0E-6F;
+        //?} else {
+        /*return Math.abs(bone.position.x) < 1.0E-6F
+                && Math.abs(bone.position.y) < 1.0E-6F
+                && Math.abs(bone.position.z) < 1.0E-6F
+                && Math.abs(bone.rotation.x) < 1.0E-6F
+                && Math.abs(bone.rotation.y) < 1.0E-6F
+                && Math.abs(bone.rotation.z) < 1.0E-6F
+                && Math.abs(bone.scale.x - 1.0F) < 1.0E-6F
+                && Math.abs(bone.scale.y - 1.0F) < 1.0E-6F
+                && Math.abs(bone.scale.z - 1.0F) < 1.0E-6F;
+        *///?}
     }
 
     /**

@@ -218,10 +218,17 @@ public final class FpModelRenderer {
                     bone.pivotX(), bone.pivotY(), bone.pivotZ()
             });
             // A zero scale is how flash bones hide themselves; collapsed quads are not worth drawing.
+            //? if >=26.1.2 {
             visible = visible
                     && Math.abs(transform.scale.x) > 1.0E-5F
                     && Math.abs(transform.scale.y) > 1.0E-5F
                     && Math.abs(transform.scale.z) > 1.0E-5F;
+            //?} else {
+            /*visible = visible
+                    && Math.abs(transform.scale.x) > 1.0E-5F
+                    && Math.abs(transform.scale.y) > 1.0E-5F
+                    && Math.abs(transform.scale.z) > 1.0E-5F;
+            *///?}
         }
 
         // The modeled arm cubes are not rendered: PAL draws the vanilla arm mesh there instead.
