@@ -10,7 +10,10 @@ stonecutter {
 		replace("net.minecraft.client.model.PlayerModel", "net.minecraft.client.model.player.PlayerModel")
 		replace("net.minecraft.client.renderer.RenderType", "net.minecraft.client.renderer.rendertype.RenderType")
 		replace("RenderType.entity", "RenderTypes.entity")
-		replace("net.minecraft.client.renderer.entity.player.PlayerRenderer", "net.minecraft.client.renderer.entity.player.AvatarRenderer")
+		replace(
+			"net.minecraft.client.renderer.entity.player.PlayerRenderer",
+			"net.minecraft.client.renderer.entity.player.AvatarRenderer"
+		)
 		replace("PlayerRenderer", "AvatarRenderer")
 		replace("IAnimatedPlayer", "IAnimatedAvatar")
 		replace("PlayerAnimManager", "AvatarAnimManager")
@@ -54,6 +57,12 @@ platform {
 			fabricLikeVersionRange = ">=${prop("deps.fabric-loader")}"
 		}
 		optional("modmenu") {}
+		required("player_animation_library") {
+			modrinth = "ha1mEyJS"
+			curseforge = "1283899"
+			slug("player-animation-library")
+			fabricLikeVersionRange = ">=${prop("deps.player_animation_library")}"
+		}
 	}
 }
 

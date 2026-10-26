@@ -50,6 +50,12 @@ platform {
 		required("neoforge") {
 			forgeLikeVersionRange.set("[${prop("deps.neoforge")},)")
 		}
+		required("player_animation_library") {
+			modrinth = "ha1mEyJS"
+			curseforge = "1283899"
+			slug("player-animation-library")
+			forgeLikeVersionRange.set("[1,)")
+		}
 	}
 }
 
